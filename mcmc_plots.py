@@ -6,7 +6,9 @@ Created on Wed Sep 22 15:40:55 2021
 @author: giovanni
 """
 import sys,corner,math
-sys.path.append('/mnt/Storage/Lavoro/GitHub/imf-master/imf/')
+# sys.path.append('/mnt/Storage/Lavoro/GitHub/imf-master/imf/')
+sys.path.append('D:\\imf-master\\imf')
+
 from imf import coolplot
 import numpy as np
 import matplotlib.pyplot as plt
