@@ -11,7 +11,7 @@ sys.path.append('/mnt/Storage/Lavoro/GitHub/imf-master/imf/')
 
 import numpy as np
 import stsynphot as stsyn
-from synphot import units,ExtinctionModel1D,Observation,SourceSpectrum
+from synphot import units,ExtinctionModel1D,Observation,SourceSpectrum,SpectralElement
 from synphot.units import FLAM
 from dust_extinction.parameter_averages import CCM89
 from synphot.reddening import ExtinctionCurve
@@ -19,16 +19,20 @@ from synphot.models import BlackBodyNorm1D
 from astropy.time import Time
 from astropy import units as u
 import matplotlib.pyplot as plt
-# from tqdm import tqdm
-# from IPython.display import display
+from tqdm import tqdm
+from IPython.display import display
+from random import random
 
 ########################
 # Simulated photometry #
 ########################
 
-def simulate_mag_star(sat_list,variables_interp_in,mag_variable_in,Av1_list,mag_list=[],emag_list=[],mass=None,Av1=None,age=None,distance=None,err=None,err_min=0.01,err_max=0.1,mvs_df=None,avg_df=None):
+def simulate_mag_star(sat_list,variables_interp_in,mag_variable_in,Av1_list,mag_list=[],emag_list=[],var=None,Av1=None,age=None,distance=None,err=None,err_min=0.01,err_max=0.1,avg_df=None):
     if len(mag_list)==0 and len(emag_list)==0: 
-        mag_temp_list=np.round(np.array([float(variables_interp_in[i](np.log10(mass),np.log10(age)))+Av1_list[i]*Av1+5*np.log10(distance/10) for i in range(len(variables_interp_in))]),3)
+        mag_temp_list=np.round(np.array([float(variables_interp_in[i](np.log10(var),np.log10(age)))+Av1_list[i]*Av1+5*np.log10(distance/10) for i in range(len(variables_interp_in))]),3)
+        # err_array=np.array([np.random.uniform(-0.25,0.25)*[0,0,0,0,0,0][i] for i in range(6)])
+        # print('> fake error array:',err_array)
+        # mag_temp_list+=err_array
         emag_temp_list=[]
         if err!=None:
             emag_list=np.array([err]*len(mag_temp_list))
@@ -37,21 +41,23 @@ def simulate_mag_star(sat_list,variables_interp_in,mag_variable_in,Av1_list,mag_
             for i in range(len(mag_variable_in)):
                 mag_label='m%s'%(mag_variable_in[i][1:4])
                 emag_label='e%s'%(mag_variable_in[i][1:4])
-                if mag_label in mvs_df.columns: df=mvs_df
-                elif mag_label in avg_df.columns: df=avg_df
+                if mag_label in avg_df.columns: df=avg_df
                 else: raise ValueError('%s found in no dataframe'%mag_label)
                 err=np.nanmedian(df.loc[(df[mag_label]>=mag_temp_list[i]-0.5)&(df[mag_label]<=mag_temp_list[i]+0.5),emag_label].values)
-                emag_list.append(np.round(err,3))
+                # emag_list.append(np.round(err,3))
+                emag_list.append(err)
         emag_list=np.array(emag_list)   
-        mag_list=np.array([round(mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]),3) for i in range(len(variables_interp_in))])
-    else:mag_temp_list=np.copy(mag_list)
-
+        # mag_list=np.array([round(mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]),3) for i in range(len(variables_interp_in))])
+        mag_list=np.array([mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]) for i in range(len(variables_interp_in))])
+    else:
+        mag_temp_list=np.copy(mag_list)
+        if err!=None: emag_list=np.array([err]*len(mag_temp_list))
     emag_temp_list=np.copy(emag_list)
-
     mag_good_list=(emag_list<=err_max)&(mag_list>=sat_list)
     mag_list[~mag_good_list]=np.nan
     emag_list[~mag_good_list]=np.nan
-    return(np.round(mag_list,4),np.round(emag_list,4),np.round(mag_temp_list,4),np.round(emag_temp_list,4),mag_good_list)
+    # return(np.round(mag_list,4),np.round(emag_list,4),np.round(mag_temp_list,4),np.round(emag_temp_list,4),mag_good_list)
+    return(mag_list,emag_list,mag_temp_list,emag_temp_list,mag_good_list)
 
 def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_list):
     color_list=[]
@@ -64,90 +70,136 @@ def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_l
         j=np.where(mag1_label == mag_label_list)[0][0]
         k=np.where(mag2_label == mag_label_list)[0][0]
         color_list.append(mag_list[j]-mag_list[k])
-        ecolor_list.append(np.round(np.sqrt(emag_list[j]**2+emag_list[k]**2),3))
+        ecolor_list.append(np.sqrt(emag_list[j]**2+emag_list[k]**2))
         Av1_color_list.append(Av1_list[j]-Av1_list[k])
         if np.isnan(color_list[-1]): color_good_list.append(False)
         else: color_good_list.append(True)
-    return(np.round(np.array(color_list),4),np.round(np.array(ecolor_list),4),np.round(np.array(Av1_color_list),4),color_good_list)
+    return(np.array(color_list),np.array(ecolor_list),np.array(Av1_color_list),color_good_list)
 
-def get_Av_list(interp_mags,interp_Tlogg,filter_label_list,mag_label_list,photflam,Rv,DM=8.02,mass=1,age=1,showplot=False,photlam658=1.977e-18):
-    obsdate = Time('2005-01-1').mjd
-
-    bp435=stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
-    bp555=stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
-    bp658=stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
-    bp775=stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
-    bp850=stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
-
-    bp130=stsyn.band('wfc3,ir,f130n')
-    bp139=stsyn.band('wfc3,ir,f139m')
-
-    bp_list=[bp435,bp555,bp775,bp850,bp130,bp139]
-
-    mag_sel_list=[interp_mags[i](np.log10(mass),np.log10(age))+DM for i in range(len(mag_label_list))]
-    T=interp_Tlogg[0](np.log10(mass),np.log10(age))
-    logg=interp_Tlogg[1](np.log10(mass),np.log10(age))
-    wavelengths_list=[]
-    sp = SourceSpectrum(BlackBodyNorm1D, temperature=T)
-    binset = range(1000, 30001)
-
-    for bp in bp_list:
-        wavelengths_list.append(Observation(sp, bp, binset=binset).effective_wavelength())
-
-    wavelengths_658=Observation(sp, bp, binset=binset).effective_wavelength()
-
-    sp = stsyn.grid_to_spec('phoenix', T, 0, logg)
-
-    band =stsyn.band('acs,wfc1,f555w') # SpectralElement.from_filter('johnson_v')#555
-    vega = SourceSpectrum.from_vega()
-    mag = mag_sel_list[-1]* units.VEGAMAG
-    sp_norm = sp.normalize(mag , band, vegaspec=vega)
-
-    wav = binset * u.AA
-    flux = sp_norm(wav).to(FLAM, u.spectral_density(wav))#*1e3/dist_ist[-1]
-
-    if showplot:
-        plt.figure(figsize=(7,7))
-        plt.plot(wav.value, flux.value)
-        plt.title('Blackbody T=%.2f'%T)
-        plt.ylabel('FLAM')
-        plt.xlabel('$\lambda$ [AA]')
-        plt.show()
-        
-        
-    ext = CCM89(Rv=Rv)
-    # ext = CCM89(Rv=5)
-    Av = 1
-
-    # Make the extinction model in synphot using a lookup table.
-    ex = ExtinctionCurve(ExtinctionModel1D,
-                         points=wav, lookup_table=ext.extinguish(wav, Av=Av))
-    sp_ext = sp_norm*ex
-
-    flux_ext = sp_ext(wav).to(FLAM, u.spectral_density(wav))
-
-    if showplot:
-        plt.figure(figsize=(7,7))
-        plt.loglog(wav, flux_ext)
-        plt.title('Blackbody T=%.2f Av=%.3f'%(T,Av))
-        plt.ylabel('FLAM')
-        plt.xlabel('$\lambda$ [AA]')
-        plt.show()
-        
-    Av_list=[]
-
-    for n in range(len(filter_label_list)):
-        qq=np.where(np.array(wav.value)==round(wavelengths_list[n].value))[0]
-        Av1_mag=-2.5*np.log10((sp_ext(wav).to(FLAM, u.spectral_density(wav))[qq]/photflam[n]).value)[0]
-        Av0_mag=-2.5*np.log10((sp_norm(wav).to(FLAM, u.spectral_density(wav))[qq]/photflam[n]).value)[0]
-        Av_list.append(round(Av1_mag-Av0_mag,5))
+def get_Av_list(filter_label_list,date='2005-01-1',verbose=False,Av=1):
+    obsdate = Time(date).mjd
+    vegaspec = SourceSpectrum.from_vega()  
+    Dict = {}
     
-    qq=np.where(np.array(wav.value)==round(wavelengths_658.value))[0]
-    Av1_mag=-2.5*np.log10((sp_ext(wav).to(FLAM, u.spectral_density(wav))[qq]/(photlam658)).value)[0]
-    Av0_mag=-2.5*np.log10((sp_norm(wav).to(FLAM, u.spectral_density(wav))[qq]/(photlam658)).value)[0]
-    Av_658=round(Av1_mag-Av0_mag,5)
+    wav = np.arange(3000, 15000,10) * u.AA
+    extinct = CCM89(Rv=3.1)
+    ex = ExtinctionCurve(ExtinctionModel1D,points=wav, lookup_table=extinct.extinguish(wav, Av=Av))
+    vegaspec_ext = vegaspec*ex
     
-    return(np.array(Av_list),Av_658)
+    band = SpectralElement.from_filter('johnson_v')#555
+    sp_obs = Observation(vegaspec_ext, band)
+    sp_obs_before = Observation(vegaspec, band)
+    
+    sp_stim_before = sp_obs_before.effstim(flux_unit='vegamag', vegaspec=vegaspec)
+    sp_stim = sp_obs.effstim(flux_unit='vegamag', vegaspec=vegaspec)
+    
+    if verbose:
+        print('before dust, V =', np.round(sp_stim_before,4))
+        print('after dust, V =', np.round(sp_stim,4))
+        flux_spectrum_norm = vegaspec(wav).to(FLAM, u.spectral_density(wav))
+        flux_spectrum_ext = vegaspec_ext(wav).to(FLAM, u.spectral_density(wav))
+        plt.semilogy(wav,flux_spectrum_norm,label='Av = 0')
+        plt.semilogy(wav,flux_spectrum_ext,label='Av = %s'%Av)
+        plt.legend()
+        plt.ylabel('Flux [FLAM]')
+        plt.xlabel('Wavelength [A]')
+        plt.xlim(3000, 15000)
+        plt.show()
+    
+        # Calculate extinction and compare to our chosen value.
+        Av_calc = sp_stim - sp_stim_before
+        print('Av = ', np.round(Av_calc,4))
+    
+    for filter in filter_label_list:
+        if filter in ['F130N','F139M']:
+            obs = Observation(vegaspec, stsyn.band('wfc3,ir,%s'%filter.lower()))
+            obs_ext = Observation(vegaspec_ext, stsyn.band('wfc3,ir,%s'%filter.lower()))
+        else:
+            obs = Observation(vegaspec, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}'%filter.lower()))
+            obs_ext = Observation(vegaspec_ext, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}'%filter.lower()))
+            
+        if verbose: 
+            # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
+            print('AV=1 %s'%filter,np.round(obs_ext.effstim('vegamag',vegaspec=vegaspec)-obs.effstim('vegamag',vegaspec=vegaspec),4))
+        Dict[filter]=np.round((obs_ext.effstim('vegamag',vegaspec=vegaspec)-obs.effstim('vegamag',vegaspec=vegaspec)).value,4)
+    return(Dict)
+
+# def get_Av_list(interp_mags,interp_Tlogg,filter_label_list,mag_label_list,photflam,Rv,date='2005-01-1',DM=0,mass=1,age=1,Av=1,showplot=False,photlam658=1.977e-18):
+#     obsdate = Time(date).mjd
+
+#     bp435=stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
+#     bp555=stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
+#     bp658=stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
+#     bp775=stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
+#     bp850=stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
+
+#     bp130=stsyn.band('wfc3,ir,f130n')
+#     bp139=stsyn.band('wfc3,ir,f139m')
+
+#     bp_list=[bp435,bp555,bp775,bp850,bp130,bp139]
+
+#     mag_sel_list=[interp_mags[i](np.log10(mass),np.log10(age))+DM for i in range(len(mag_label_list))]
+#     T=interp_Tlogg[0](np.log10(mass),np.log10(age))
+#     logg=interp_Tlogg[1](np.log10(mass),np.log10(age))
+#     wavelengths_list=[]
+#     sp = SourceSpectrum(BlackBodyNorm1D, temperature=T)
+#     binset = range(1000, 30001)
+
+#     for bp in bp_list:
+#         wavelengths_list.append(Observation(sp, bp, binset=binset).effective_wavelength())
+
+#     wavelengths_658=Observation(sp, bp658, binset=binset).effective_wavelength()
+
+#     sp = stsyn.grid_to_spec('phoenix', T, 0, logg)
+
+#     band =stsyn.band('acs,wfc1,f555w') # SpectralElement.from_filter('johnson_v')#555
+#     vega = SourceSpectrum.from_vega()
+#     mag = np.array(mag_sel_list)[np.array(filter_label_list)=='F555W'][0]* units.VEGAMAG
+#     sp_norm = sp.normalize(mag , band, vegaspec=vega)
+
+#     wav = binset * u.AA
+#     flux = sp_norm(wav).to(FLAM, u.spectral_density(wav))#*1e3/dist_ist[-1]
+
+#     if showplot:
+#         plt.figure(figsize=(7,7))
+#         plt.loglog(wav.value, flux.value)
+#         plt.title('Blackbody T=%.2f'%T)
+#         plt.ylabel('FLAM')
+#         plt.xlabel('$\lambda$ [AA]')
+#         plt.show()
+        
+        
+#     ext = CCM89(Rv=Rv)
+    
+#     # Make the extinction model in synphot using a lookup table.
+#     ex = ExtinctionCurve(ExtinctionModel1D,
+#                          points=wav, lookup_table=ext.extinguish(wav, Av=Av))
+#     sp_ext = sp_norm*ex
+
+#     flux_ext = sp_ext(wav).to(FLAM, u.spectral_density(wav))
+
+#     if showplot:
+#         plt.figure(figsize=(7,7))
+#         plt.loglog(wav, flux_ext)
+#         plt.title('Blackbody T=%.2f Av=%.3f'%(T,Av))
+#         plt.ylabel('FLAM')
+#         plt.xlabel('$\lambda$ [AA]')
+#         plt.show()
+        
+#     Av_list=[]
+
+#     for n in range(len(filter_label_list)):
+#         qq=np.where(np.array(wav.value)==round(wavelengths_list[n].value))[0]
+#         Av1_mag=-2.5*np.log10((sp_ext(wav).to(FLAM, u.spectral_density(wav))[qq]/photflam[n]).value)[0]
+#         Av0_mag=-2.5*np.log10((sp_norm(wav).to(FLAM, u.spectral_density(wav))[qq]/photflam[n]).value)[0]
+#         Av_list.append(round(Av1_mag-Av0_mag,5))
+    
+#     qq=np.where(np.array(wav.value)==round(wavelengths_658.value))[0]
+#     Av1_mag=-2.5*np.log10((sp_ext(wav).to(FLAM, u.spectral_density(wav))[qq]/(photlam658)).value)[0]
+#     Av0_mag=-2.5*np.log10((sp_norm(wav).to(FLAM, u.spectral_density(wav))[qq]/(photlam658)).value)[0]
+#     Av_658=round(Av1_mag-Av0_mag,5)
+        
+#     return(np.array(Av_list),Av_658)
 
 def truth_list(mass,Av,age,mass_lim=[0.1,0.9],Av_lim=[0,10],age_lim=[0,100]):
     if mass==None:mass=np.round(random.uniform(mass_lim[0],mass_lim[1]),4)
@@ -162,7 +214,7 @@ def truth_list(mass,Av,age,mass_lim=[0.1,0.9],Av_lim=[0,10],age_lim=[0,100]):
 ################################
 
 def star_properties(flat_samples,ndim,interp_star_properties,mlabel):
-    if mlabel == '0':
+    if mlabel == '4':
         for i in range(ndim):
             mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
             q = np.diff(mcmc)
@@ -225,34 +277,80 @@ def star_properties(flat_samples,ndim,interp_star_properties,mlabel):
             
     return(mass,emass_u,emass_d,Av,eAv_u,eAv_d,age,eage_u,eage_d,T,eT_u,eT_d,L,eL_u,eL_d)
 
-def lum_corr(MCMC_sim_df,ID,interp_mags,Av_list,DM):
+def lum_corr(MCMC_sim_df,ID,interp_mags,interp_cols,Av_list,DM,L,mag_label_list,color_label_list,verbose=False,truths=[None,None,None]):
+    if verbose: display(MCMC_sim_df.loc[MCMC_sim_df.ID==ID])
     mag_good_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'good_mags'].values[0]
+    col_good_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'good_cols'].values[0]
     mag_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mags'].values[0]
+    col_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'cols'].values[0]
     emag_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'emags'].values[0]
-    mass=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mass'].values[0]
-    Av=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'Av'].values[0]
-    age=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'A'].values[0]
-    L=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'L'].values[0]
-
+    if np.all(np.array(truths) == None):
+        mass=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mass'].values[0]
+        Av=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'Av'].values[0]
+        age=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'A'].values[0]
+    else:
+        mass,Av,age=truths
+        
     dmag_corr_list=[]
     emag_corr_list=[]
+    good_mag_label_list=[]
     q=np.where(mag_good_list)[0]
+    w=np.where(col_good_list)[0]
+    
+    if verbose:
+        print(ID,mag_good_list,col_good_list,Av_list)
+        print('DM: %.3f, mass: %.3f, Av: %.3f, age: %.3f'%(DM,mass,Av,age))
+        print('\nMatched Colors:')
+        
+    for elno in w:
+        color_label=color_label_list[elno]
+        mag1_label=color_label.split('-')[0]
+        mag2_label=color_label.split('-')[1]
+        good_mag_label_list.extend([mag1_label,mag2_label])
+        j=np.where(mag1_label == mag_label_list)[0][0]
+        k=np.where(mag2_label == mag_label_list)[0][0]
+        Av_color=Av_list[j]-Av_list[k]
+        iso_col=float(interp_cols[elno](np.log10(mass),np.log10(age)))
+        col=col_list[elno]-Av*Av_color
+        dcol=float((col-iso_col))
+        if verbose:
+            print('%s :'%color_label)
+            print('orig col: %.3f, Av_color: %.3f, Av*Av_color: %.3f '%(col_list[elno],Av_color,Av*Av_color))
+            print('iso: %.3f, derived col: %.3f, dcol: %.3f'%(iso_col,col,dcol))
+            print(' ')
 
+    if verbose:print('Derived Magnitude')
     for elno in q:
-        iso_mag=float(interp_mags[elno](np.log10(mass),np.log10(age)))
-        mag=mag_list[elno]-DM-Av*Av_list[elno]
-        dmag=float((mag-iso_mag)/iso_mag)
-        dmag_corr_list.append(dmag)
-        emag=emag_list[elno]
-        emag_corr_list.append(emag**(-2))
+        mag_label=mag_label_list[elno]
+        if mag_label in good_mag_label_list:
+            iso_mag=float(interp_mags[elno](np.log10(mass),np.log10(age)))
+            mag=mag_list[elno]-DM-Av*Av_list[elno]
+            dmag=float((mag-iso_mag))
+            dmag_corr_list.append(dmag)
+            emag=emag_list[elno]
+            emag_corr_list.append(emag**(-2))
+            if verbose:
+                print('%s :'%mag_label)
+                print('orig mag: %.3f, Av_mag: %.3f, Av*Av_mag: %.3f '%(mag_list[elno],Av_list[elno],Av*Av_list[elno]))
+                print('iso: %.3f, derived mag: %.3f, dmag: %.3f'%(iso_mag,mag,dmag))
+                print(' ')
 
     dmag_corr_list=np.array(dmag_corr_list)
     emag_corr_list=np.array(emag_corr_list)
-    dmag_mag=np.average(dmag_corr_list,weights=emag_corr_list)
-    df_f=dmag_mag/1.087 
+    # dmag_mean=np.average(dmag_corr_list,weights=emag_corr_list)
+    dmag_median=np.median(dmag_corr_list)
+    df_f=-dmag_median/1.087 
+    if verbose:
+        # print('Delta distance?!:')
+        # print(dmag_mean,10**(abs(dmag_mean)/5),10**(abs(dmag_corr_list)/5))
+        print('Delta Mag/Flux:')
+        print('dmag_median: %.3f, dflux: %.3f'%(dmag_median,df_f))
+        print('Delta L:')
+        print('L: %.3f, 1+df: %.3f, Lf: %.3f'%(L,1+df_f,L*(1+df_f)))
+        print('###################')
     return(L*(1+df_f))
 
-def accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,label=''):
+def accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,zpt658,photlam658,Msun,Lsun,eLsun,Rsun,d,ed,sigma,RW,label='',s685=3,EQ_th=10):
     M=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mass'].values[0]*Msun
     eM=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'emass'].values[0]*Msun
 
@@ -271,7 +369,7 @@ def accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,label=''):
     EQW=RW*(1-10**(-0.4*(m658_c-m658_d)))
     eEQW=np.sqrt(RW**2*(-0.4*np.log(10)*np.sqrt(e658**2+e658_c**2))**2)
 
-    if (m658_c-m658_d>= 3*e658) and (EQW>10):
+    if (m658_c-m658_d>= s685*e658) and (EQW>=EQ_th):
 
         electrons_d=10**(-(m658_d-zpt658)/2.5)
         e_electrons_d=electrons_d*e658/1.086
@@ -340,41 +438,27 @@ def accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,label=''):
             
     return(MCMC_sim_df)
 
-def star_accrention_properties(MCMC_sim_df,mean_df,interp_mags,mlabel,Rv,interp_658,DM,showplot=False,ID_list=[]): 
-    # if Rv=='a': Av_list,Av_658=get_Av_list(3,mass=1,age=1,showplot=False)
-    # elif Rv=='b': Av_list,Av_658=get_Av_list(5,mass=1,age=1,showplot=False)
-    if Rv=='a': Av_list,Av_658=get_Av_list(interp_mags,interp_Tlogg,filter_label_list,mag_label_list,photflam,3,DM=DM_mass_age_4Av_test[0],mass=DM_mass_age_4Av_test[1],age=DM_mass_age_4Av_test[2],showplot=False,photlam658=1.977e-18)
-    elif Rv=='b': Av_list,Av_658=get_Av_list(interp_mags,interp_Tlogg,filter_label_list,mag_label_list,photflam,5,DM=DM_mass_age_4Av_test[0],mass=DM_mass_age_4Av_test[1],age=DM_mass_age_4Av_test[2],showplot=False,photlam658=1.977e-18)
-
-    
-    print('> Working on accretion properties for stars in mlabel: %s Rv: %s'%(mlabel,Rv))
+def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,interp_658,DM,Av_list,Av_658,zpt658,photlam658,Msun,Lsun,eLsun,Rsun,d,ed,sigma,RW,showplot=False,verbose=False,ID_list=[],p='',s685=3,EQ_th=10): 
     MCMC_sim_df[['emass']]=MCMC_sim_df[['emass_d','emass_u']].mean(axis=1)
     MCMC_sim_df[['eAv']]=MCMC_sim_df[['eAv_d','eAv_u']].mean(axis=1)
-
-    eA=MCMC_sim_df[['eA_d','eA_u']].mean(axis=1)
-    MCMC_sim_df[['eA']]=eA
-
-    eT=MCMC_sim_df[['eT_d','eT_u']].mean(axis=1)
-    MCMC_sim_df[['eT']]=eT
-
-    eL=MCMC_sim_df[['eL_d','eL_u']].mean(axis=1)
-    MCMC_sim_df[['eL']]=eL
-
-    MCMC_sim_df[['eL_corr']]=eL
+    MCMC_sim_df[['eA']]=MCMC_sim_df[['eA_d','eA_u']].mean(axis=1)
+    MCMC_sim_df[['eT']]=MCMC_sim_df[['eT_d','eT_u']].mean(axis=1)
+    MCMC_sim_df[['eL']]=MCMC_sim_df[['eL_d','eL_u']].mean(axis=1)
+    MCMC_sim_df[['eL_corr']]=MCMC_sim_df[['eL_d','eL_u']].mean(axis=1)
 
     if len(ID_list) == 0: ID_list=MCMC_sim_df['ID'].unique()
     for ID in tqdm(ID_list): 
         color_good_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'good_cols'].values[0]
         if not np.all(np.isnan(color_good_list)) and np.any(color_good_list):
-            MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'L_corr']=lum_corr(MCMC_sim_df,ID,interp_mags,Av_list,DM)
-
+            L=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'L'].values[0]
+            MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'L_corr']=lum_corr(MCMC_sim_df,ID,interp_mags,interp_cols,Av_list,DM,L,self.mag_label_list,self.color_label_list,verbose=verbose)
             mag_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mags'].tolist()[0][:-2]
             emag_list=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'emags'].tolist()[0][:-2]
             m435,m555,m775,m850=mag_list
             e435,e555,e775,e850=emag_list
 
-            m658=mean_df.loc[mean_df.UniqueID==ID,'m658_p'].values[0]
-            e658=mean_df.loc[mean_df.UniqueID==ID,'e658_p'].values[0]
+            m658=avg_df.loc[avg_df.UniqueID==ID,'m658%s'%p].values[0]
+            e658=avg_df.loc[avg_df.UniqueID==ID,'e658%s'%p].values[0]
 
             m435-=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'Av'].values[0]*Av_list[0]
             m555-=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'Av'].values[0]*Av_list[1]
@@ -412,7 +496,8 @@ def star_accrention_properties(MCMC_sim_df,mean_df,interp_mags,mlabel,Rv,interp_
                     plt.plot([m435_d,m555_d,m775_d,m850_d],'og',ms=4)
                     plt.show()
                 if not np.isnan([m658_c-m658_d]):
-                    MCMC_sim_df=accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,label='')
+                    # MCMC_sim_df=accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,label='')
+                    MCMC_sim_df=accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,zpt658,photlam658,Msun,Lsun,eLsun,Rsun,d,ed,sigma,RW,s685=s685,EQ_th=EQ_th)
         else:
             MCMC_sim_df.loc[MCMC_sim_df.ID==ID,['N', 'mass', 'emass', 'emass_d', 'emass_u', 
                         'Av', 'eAv', 'eAv_d', 'eAv_u',

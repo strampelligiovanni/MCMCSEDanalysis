@@ -84,6 +84,7 @@ def interpND(*args,smooth=0,method='nearest',x_label='x',y_label='y',z_label=Non
     interpolations_list=[]
     row=1
     col=1
+    Dict={}
     for elno in range(len(node_list)):
         args_reshaped=[args[0][i] for i in range(len(args[0][:-1]))]
         if method =='nearest': 
@@ -93,6 +94,7 @@ def interpND(*args,smooth=0,method='nearest',x_label='x',y_label='y',z_label=Non
             args_reshaped.append(args[0][-1][elno])
             interpolation=Rbf(*args_reshaped,smooth=smooth,function=method)
         interpolations_list.append(interpolation)
+        Dict[z_label[elno]]=interpolation
         if showplot:
             if len(*args)-1==3:
                 thisdict = {
@@ -139,7 +141,8 @@ def interpND(*args,smooth=0,method='nearest',x_label='x',y_label='y',z_label=Non
                 col=1
     if showplot:
         fig.show()
-    return(np.array(interpolations_list))
+    # return(np.array(interpolations_list),Dict)
+    return(Dict)
 
 def plot_3d(args,xerror=None,yerror=None,zerror=None,x_label='x',y_label='y',z_label='z',name_label='var',elno=0,fig=None,color='k',pad=1,w_pad=1,h_pad=1,fx=1000,fy=750,size=3,width=1,row=1,col=1,showplot=False,subplot_titles=['Plot1'],marker_color='black',aspectmode='cube'):
     if showplot: 
@@ -164,7 +167,7 @@ def plot_3d(args,xerror=None,yerror=None,zerror=None,x_label='x',y_label='y',z_l
     fig.update_scenes(xaxis=dict(title_text=x_label),yaxis=dict(title_text=y_label),zaxis=dict(title_text=z_label),row=row,col=col,aspectmode=aspectmode)
     if showplot: fig.show()
     
-def sample_posteriors(interp_star_properties,MCMC_sim_df,ID,mlabel,ndim,show_samples=False,truths=None,simulation=False,bins=20,pranges=None):
+def sample_posteriors(interp_star_properties,MCMC_sim_df,ID,mlabel,ndim,show_samples=False,truths=[None,None,None],bins=20,pranges=None,figsize=(10,10)):
     samples=np.array(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'samples'].values[0])
     flat_samples=np.array(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'flat_samples'].values[0])
     display(MCMC_sim_df.loc[MCMC_sim_df.ID==ID])
@@ -190,14 +193,14 @@ def sample_posteriors(interp_star_properties,MCMC_sim_df,ID,mlabel,ndim,show_sam
     txt = txt.format(L, eL_d, eL_u, 'L')
     display(Math(txt))
 
-    if mlabel =='0': labels=['Teff','Av','Age']
+    if mlabel =='4': labels=['Teff','Av','Age']
     else: labels=['mass','Av','Age']
     if show_samples:
         fig, axes = plt.subplots(ndim, figsize=(8, 7), sharex=True)
         for i in range(ndim):
             ax = axes[i]
             ax.plot(samples[:, :, i], "k", alpha=0.3)
-            if simulation:ax.axhline(truths[i])
+            if truths[i]!= None:ax.axhline(truths[i])
             ax.set_xlim(0, len(samples))
             ax.set_ylabel(labels[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
@@ -206,32 +209,44 @@ def sample_posteriors(interp_star_properties,MCMC_sim_df,ID,mlabel,ndim,show_sam
         plt.tight_layout()
         plt.show()
 
-    fig=plt.figure(figsize=(7,7))
+    fig=plt.figure(figsize=figsize)
     fig.suptitle('Star ID %i'%ID)
-    fig = corner.corner(flat_samples,range=pranges,labels=labels,bins=bins,quantiles=[0.16, 0.5, 0.84], show_titles=True, title_kwargs={"fontsize": 15},plot_contours=True,fig=fig)
-
-########################################################################################
-#     values=[]
-#     # Extract the axes
-#     axes = np.array(fig.axes).reshape((ndim, ndim))
-
-#     # Loop over the diagonal
-#     for i in range(ndim):
-#         ax = axes[i, i]
-#         a,b=np.histogram(flat_samples[:,i],bins=bins)
-#         w=np.where(a==np.max(a))[0][0]
-#         values.append((b[w]+b[w+1])/2)
-#         ax.axvline(values[i], color="r")
-
-#     # Loop over the histograms
-#     for yi in range(ndim):
-#         for xi in range(yi):
-#             ax = axes[yi, xi]
-#             ax.axvline(values[xi], color="r")
-#             ax.axhline(values[yi], color="r")
-#     print(values)
-#########################################################################################
+    fig = corner.corner(flat_samples,truths=truths,range=pranges,labels=labels,bins=bins,quantiles=[0.16, 0.5, 0.84], show_titles=True, title_kwargs={"fontsize": 15},plot_contours=True,fig=fig)
 
     plt.tight_layout()
     plt.show()
+    
+def sample_blobs(MCMC_df,ID,mag_label_list,color_label_list,show_samples=False,bins=20,pranges=None,figsize=(10,10)):
+    display(MCMC_df.loc[MCMC_df.ID==ID])
+    blobs=np.array(MCMC_df.loc[MCMC_df.ID==ID,'blobs'].values[0])
+    flat_blobs=np.array(MCMC_df.loc[MCMC_df.ID==ID,'flat_blobs'].values[0])
+    labels=[]
+    truths=[]
+    for label in MCMC_df.variables.values[0]:
+        labels.append(label)
+        if label in mag_label_list: truths.append(MCMC_df.loc[MCMC_df.ID==ID,'mags'].values[0][label==mag_label_list]) 
+        elif label in color_label_list: truths.append(MCMC_df.loc[MCMC_df.ID==ID,'cols'].values[0][label==color_label_list]) 
+        
+    
+    ndim=len(truths)
+    if show_samples:
 
+        fig, axes = plt.subplots(ndim, figsize=figsize, sharex=True)
+        for i in range(ndim):
+            ax = axes[i]
+            ax.plot(blobs[:, :, i], "k", alpha=0.3)
+            ax.axhline(truths[i])
+            ax.set_xlim(0, len(blobs))
+            ax.set_ylabel(labels[i])
+            ax.yaxis.set_label_coords(-0.1, 0.5)
+        
+        axes[-1].set_xlabel("step number")
+        plt.tight_layout()
+    
+    import corner
+    fig=plt.figure(figsize=figsize)
+    fig = corner.corner(flat_blobs,truths=truths,range=pranges,labels=labels,bins=bins,quantiles=[0.16, 0.5, 0.84], show_titles=True, title_kwargs={"fontsize": 15},plot_contours=True,fig=fig)
+    
+    plt.tight_layout()
+    plt.show()
+    

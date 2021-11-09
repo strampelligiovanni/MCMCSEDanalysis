@@ -6,7 +6,7 @@ Created on Thu Sep 23 12:09:40 2021
 @author: giovanni
 """
 import numpy as np
-from plots import show_cluster
+from mcmc_plots import show_cluster
 import scipy.stats as ss
 import imf
 import pandas as pd
