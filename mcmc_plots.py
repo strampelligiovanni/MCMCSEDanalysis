@@ -5,27 +5,30 @@ Created on Wed Sep 22 15:40:55 2021
 
 @author: giovanni
 """
-import sys,corner,math
-# sys.path.append('/mnt/Storage/Lavoro/GitHub/imf-master/imf/')
-sys.path.append('D:\\imf-master\\imf')
-
+import sys,corner
+sys.path.append('./')
+from config import path2projects
+sys.path.append(path2projects)
+sys.path.append(path2projects+'/imf-master/imf')
 from imf import coolplot
+
+sys.path.append('./')
+# from config import path2data
 import numpy as np
 import matplotlib.pyplot as plt
-from plotly.subplots import make_subplots
-from scipy.interpolate import LinearNDInterpolator,Rbf
-import plotly.graph_objects as go
+# from plotly.subplots import make_subplots
+# from scipy.interpolate import LinearNDInterpolator,Rbf
 import mcmc_utils
 from IPython.display import display, Math
+from astropy import units as u
+from glob import glob
+from config import path2data
+from astropy.stats import sigma_clip
+sys.path.append(path2projects+'/Synthetic Photometry')
 
 #############
 # Ancillary #
 #############
-
-def round_up(n, decimals=0):
-    multiplier = 10 ** decimals
-    return math.ceil(n * multiplier) / multiplier
-
 
 def show_cluster(massfunc,mcluster,showplot=False):
 
@@ -36,7 +39,7 @@ def show_cluster(massfunc,mcluster,showplot=False):
         plt.figure(1, figsize=(10,8))
         # plt.clf()
         plt.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                   linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+                    linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
         plt.gca().set_xscale('log')
         plt.plot(logspace_mass,np.log10(massfunc(logspace_mass)),'r--',linewidth=2,alpha=0.5)
         plt.xlabel("Stellar Mass")
@@ -45,210 +48,202 @@ def show_cluster(massfunc,mcluster,showplot=False):
         plt.show()
     return(cluster,massfunc)
 
-def interpND(*args,smooth=0,method='nearest',x_label='x',y_label='y',z_label=None,color_labels=None,showplot=False,radial=True,fx=1450,fy=500,w_pad=3,h_pad=1,pad=3,npoints=50,nrows=1,surface=True):
-    '''Calculate 2d interpolation for the z axis along x and y variables. 
-        Parameters:
-            args: x, y, z, where x, y, z, ... are the coordinates of the nodes
-            node_list: list of lists of values at the nodes to interpolate. The rotuine will perfom a different interpolation (using the same x and y) for each sublist of node_list.
-            x_range,y_range: range of x,y variables in the from [in,end] over which evaluate the interpolation. If not provide will automaticaly take min,max as ranges.
-            smooth: smoothnes parametr for Rbf routine
-            method: 
-                if 'nearest' selected, then use LinearNDInterpolator to interpolate, otherwise use the Rbf routine where method parameters are:
-                'multiquadric': sqrt((r/self.epsilon)**2 + 1)
-                'inverse': 1.0/sqrt((r/self.epsilon)**2 + 1)
-                'gaussian': exp(-(r/self.epsilon)**2)
-                'linear': r
-                'cubic': r**3
-                'quintic': r**5
-                'thin_plate': r**2 * log(r)
-
-            x_labe,y_label: labels  for x,y axis
-            z_label: list of labels for the z axis
-            showplot: if true show plot for the interpolation
-            radial: use Rbf insead of interp2d
-        Returns:
-            interpolations_list: list of interpolatations functions to be called as new_z=interpolations_list(x0,y0)
-    '''
-    if np.all(z_label==None): z_label=['z']*len(args[0][-1])
-    if surface:
-        meshed_coords = np.meshgrid(*[np.linspace(np.min(args[0][i]),np.max(args[0][i]),npoints) for i in range(len(args[0][:-1]))])
-        new_coords=[meshed_coords[i].ravel() for i in range(len(meshed_coords))]
-    else:
-        new_coords=np.array([np.linspace(np.min(args[0][i]),np.max(args[0][i]),npoints) for i in range(len(args[0][:-1]))])
-    node_list=args[0][-1]
-    if showplot: 
+def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples=False,show_SEDfit=False,truths=[None,None,None,None,None],bins=20,pranges=None,fx=4,fy=4,labelpad=10,path2backend=None,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5):
+        if path2loaddir==None: path2loaddir=path2data+'/Giovanni/MCMC_analysis/samplers'
+        path2file=path2loaddir+'/*ID_%s'%ID
+    # try:
+        filename=glob(path2file)[0]
+        if verbose:print(filename)
+        mcmc_dict=mcmc_utils.read_samples(filename)
+        samples=np.array(mcmc_dict['samples'])
+        if discard!=None: samples=samples[discard:, :, :]
+        if thin!=None: samples=samples[::thin, :, :]        
+        flat_samples=samples.reshape(samples.shape[0]*samples.shape[1],samples.shape[2])
+        filtered_flat_sample=sigma_clip(flat_samples, sigma=sigma, maxiters=5,axis=0)
+        flat_samples=filtered_flat_sample.copy()
+        if pranges==None: 
+            pranges=[]
+            for i in  range(flat_samples.shape[1]):
+                pranges.append((np.nanmin(flat_samples[:,i][np.isfinite(flat_samples[:,i])]),np.nanmax(flat_samples[:,i][np.isfinite(flat_samples[:,i])])))
+        if verbose:print('tau:', mcmc_dict['tau'])
         
-        ncols= int(round_up(len(node_list)/nrows))
-        fig = make_subplots(rows=nrows, cols=ncols,
-                            specs= [[{"type": "surface"} for i in range(ncols)] for j in range(nrows)],
-                            horizontal_spacing = 0.01, vertical_spacing = 0.01)
-
-    interpolations_list=[]
-    row=1
-    col=1
-    Dict={}
-    for elno in range(len(node_list)):
-        args_reshaped=[args[0][i] for i in range(len(args[0][:-1]))]
-        if method =='nearest': 
-            args2interp=[list(zip(*args_reshaped)), node_list[elno]]
-            interpolation=LinearNDInterpolator(*args2interp)
-        else:
-            args_reshaped.append(args[0][-1][elno])
-            interpolation=Rbf(*args_reshaped,smooth=smooth,function=method)
-        interpolations_list.append(interpolation)
-        Dict[z_label[elno]]=interpolation
-        if showplot:
-            if len(*args)-1==3:
-                thisdict = {
-                              "x": new_coords[0],
-                              "y": new_coords[1],
-                              "z": new_coords[2]}
-                              # "z": interpolation(*new_coords)}
-                thisdict2 = {
-                              "x": args_reshaped[0].ravel(),
-                              "y": args_reshaped[1].ravel(),
-                              "z": args_reshaped[2].ravel()}
-                              # "z": node_list[elno].ravel()}
-                # marker_color1=new_coords[2]
-                # marker_color2=args_in[2].ravel()
-                marker_color1=interpolation(*new_coords)
-                marker_color2=node_list[elno].ravel()
-                z_label_ND=z_label
-                label_ND2=color_labels[elno]+'_o'
-                label_ND1=color_labels[elno]+'_i'
-
-            elif len(*args)-1==2:
-                thisdict = {
-                              "x": new_coords[0],
-                              "y": new_coords[1],
-                              "z": interpolation(*new_coords)}
-                thisdict2 = {
-                              "x": args_reshaped[0].ravel(),
-                              "y": args_reshaped[1].ravel(),
-                              "z": node_list[elno].ravel()}
-                
-                marker_color1='lightskyblue'
-                marker_color2='black'
-                z_label_ND=z_label[elno]
-                label_ND2=z_label[elno]+'_o'
-                label_ND1=z_label[elno]+'_i'
-            elif len(*args)-1==1:pass
-            
-                
-            plot_3d(thisdict2,row=row,col=col,showplot=False,marker_color=marker_color2,fig=fig,name_label=label_ND2)
-            plot_3d(thisdict,showplot=False,row=row,col=col,marker_color=marker_color1,fx=fx,fy=fy,fig=fig,x_label=x_label,y_label=y_label,z_label=z_label_ND,name_label=label_ND1)
-            col+=1
-            if col >ncols:
-                row+=1
-                col=1
-    if showplot:
-        fig.show()
-    # return(np.array(interpolations_list),Dict)
-    return(Dict)
-
-def plot_3d(args,xerror=None,yerror=None,zerror=None,x_label='x',y_label='y',z_label='z',name_label='var',elno=0,fig=None,color='k',pad=1,w_pad=1,h_pad=1,fx=1000,fy=750,size=3,width=1,row=1,col=1,showplot=False,subplot_titles=['Plot1'],marker_color='black',aspectmode='cube'):
-    if showplot: 
-        fig = make_subplots(
-            rows=1, cols=1,
-            specs= [[{"type": "scatter3d"}]],
-            # specs=[[{'is_3d': True}]],
-            subplot_titles=subplot_titles)
-
-    error_x=dict(type='data', array=xerror,visible=True)
-    error_y=dict(type='data', array=yerror,visible=True)
-    error_z=dict(type='data', array=zerror,visible=True)
-    fig.add_trace(go.Scatter3d(args, error_x=error_x, error_y=error_y, error_z=error_z,
-                               mode='markers',
-                               marker=dict(size=size,line=dict(width=width),
-                               color=marker_color),
-                               name=name_label),
-                               # text=["t: %.3f"%x for x in marker_color ]),
-                               row=row, col=col)
-
-    fig.update_layout(autosize=False,width=fx,height=fy, margin=dict(l=10,r=10,b=10,t=22,pad=4),paper_bgcolor="LightSteelBlue")
-    fig.update_scenes(xaxis=dict(title_text=x_label),yaxis=dict(title_text=y_label),zaxis=dict(title_text=z_label),row=row,col=col,aspectmode=aspectmode)
-    if showplot: fig.show()
+        logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=mcmc_utils.star_properties(flat_samples,ndim,interp,label_list=label_list,kde_fit=kde_fit)
+        if verbose:
+            print('\nStar\'s principal parameters:')
+            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = txt.format(10**logMass, 10**logMass-10**(logMass-elogMass_d), 10**(logMass+elogMass_u)-10**logMass, 'mass')
+            display(Math(txt))
+        
+            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = txt.format(10**logAv, 10**logAv-10**(logAv-elogAv_d), 10**(logAv+elogAv_u)-10**logAv, 'Av')
+            display(Math(txt))
+        
+            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = txt.format(10**logAge, 10**logAge-10**(logAge-elogAge_d), 10**(logAge+elogAge_u)-10**logAge, 'A')
+            display(Math(txt))
+        
+            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = txt.format(logSPacc, elogSPacc_d, elogSPacc_u, r"logSPacc")
+            display(Math(txt))
+        
+            txt = "\mathrm{{{3}}} = {0:.5f}_{{-{1:.5f}}}^{{{2:.5f}}}"
+            txt = txt.format(Parallax, eParallax_d, eParallax_u, 'Parallax')
+            display(Math(txt))
+        
+            txt = "\mathrm{{{1}}} = {0:.5f}"
+            txt = txt.format(area_r, 'Area Ratio')
+            display(Math(txt))
     
-def sample_posteriors(interp_star_properties,MCMC_sim_df,ID,mlabel,ndim,show_samples=False,truths=[None,None,None],bins=20,pranges=None,figsize=(10,10)):
-    samples=np.array(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'samples'].values[0])
-    flat_samples=np.array(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'flat_samples'].values[0])
-    display(MCMC_sim_df.loc[MCMC_sim_df.ID==ID])
-    mass,emass_u,emass_d,Av,eAv_u,eAv_d,age,eage_u,eage_d,T,eT_u,eT_d,L,eL_u,eL_d=mcmc_utils.star_properties(flat_samples,ndim,interp_star_properties,mlabel)
-   
-    txt = "\mathrm{{{3}}} = {0:.4f}_{{-{1:.4f}}}^{{{2:.4f}}}"
-    txt = txt.format(mass, emass_d, emass_u, 'mass')
-    display(Math(txt))
-
-    txt = "\mathrm{{{3}}} = {0:.4f}_{{-{1:.4f}}}^{{{2:.4f}}}"
-    txt = txt.format(Av, eAv_d, eAv_u, 'Av')
-    display(Math(txt))
-
-    txt = "\mathrm{{{3}}} = {0:.4f}_{{-{1:.4f}}}^{{{2:.4f}}}"
-    txt = txt.format(age, eage_d, eage_u, 'A')
-    display(Math(txt))
-
-    txt = "\mathrm{{{3}}} = {0:.4f}_{{-{1:.4f}}}^{{{2:.4f}}}"
-    txt = txt.format(T, eT_d, eT_u, 'T')
-    display(Math(txt))
-
-    txt = "\mathrm{{{3}}} = {0:.4f}_{{-{1:.4f}}}^{{{2:.4f}}}"
-    txt = txt.format(L, eL_d, eL_u, 'L')
-    display(Math(txt))
-
-    if mlabel =='4': labels=['Teff','Av','Age']
-    else: labels=['mass','Av','Age']
-    if show_samples:
-        fig, axes = plt.subplots(ndim, figsize=(8, 7), sharex=True)
+        if verbose:print('\nStar\'s derived parameters:')
+        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
+        eDist_d=Dist-((Parallax+eParallax_u)*u.mas).to(u.parsec, equivalencies=u.parallax()).value
+        eDist_u=((Parallax-eParallax_d)*u.mas).to(u.parsec, equivalencies=u.parallax()).value-Dist
+        txt = txt.format(Dist, eDist_d, eDist_u, 'Distance')
+        if verbose:display(Math(txt))
+    
+        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = txt.format(T, eT_d, eT_u, 'T')
+        if verbose:display(Math(txt))
+    
+        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = txt.format(logL, elogL_d, elogL_u, 'logL')
+        if verbose:display(Math(txt))        
+        
+        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = txt.format(logLacc, elogLacc_d, elogLacc_u, r"logL_{acc}")
+        if verbose:display(Math(txt))
+        
+        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = txt.format(logMacc, elogMacc_d, elogMacc_u, r"logM_{acc}")
+        if verbose:display(Math(txt))
+    
+        if show_samples:
+            fig, axes = plt.subplots(ndim, figsize=(8, 7), sharex=True)
+            for i in range(ndim):
+                ax = axes[i]
+                ax.plot(samples[:, :, i], "k", alpha=0.3)
+                if truths[i]!= None:ax.axhline(truths[i])
+                ax.set_xlim(0, len(samples))
+                ax.set_ylabel(label_list[i])
+                ax.yaxis.set_label_coords(-0.1, 0.5)
+        
+            axes[-1].set_xlabel("step number")
+            plt.tight_layout()
+            plt.show()
+    
+        figure = corner.corner(flat_samples,truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=None,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD',label_kwargs={'fontsize':22},title_kwargs={'fontsize':22})
+        if showID: figure.suptitle('Star ID %i'%ID)
+        axes = np.array(figure.axes).reshape((ndim, ndim))
         for i in range(ndim):
-            ax = axes[i]
-            ax.plot(samples[:, :, i], "k", alpha=0.3)
-            if truths[i]!= None:ax.axhline(truths[i])
-            ax.set_xlim(0, len(samples))
-            ax.set_ylabel(labels[i])
-            ax.yaxis.set_label_coords(-0.1, 0.5)
+            if i == 0: 
+                val= logMass
+                eval_u= elogMass_u
+                eval_d= elogMass_d
+            elif i == 1: 
+                val= logAv
+                eval_u= elogAv_u
+                eval_d= elogAv_d
+            elif i == 2: 
+                val= logAge
+                eval_u= elogAge_u
+                eval_d= elogAge_d
+            elif i == 3: 
+                val= logSPacc
+                eval_u= elogSPacc_u
+                eval_d= elogSPacc_d
+            elif i == 4: 
+                val= Parallax
+                eval_u= eParallax_u
+                eval_d= eParallax_d
     
-        axes[-1].set_xlabel("step number")
-        plt.tight_layout()
-        plt.show()
-
-    fig=plt.figure(figsize=figsize)
-    fig.suptitle('Star ID %i'%ID)
-    fig = corner.corner(flat_samples,truths=truths,range=pranges,labels=labels,bins=bins,quantiles=[0.16, 0.5, 0.84], show_titles=True, title_kwargs={"fontsize": 15},plot_contours=True,fig=fig)
-
-    plt.tight_layout()
-    plt.show()
-    
-def sample_blobs(MCMC_df,ID,mag_label_list,color_label_list,show_samples=False,bins=20,pranges=None,figsize=(10,10)):
-    display(MCMC_df.loc[MCMC_df.ID==ID])
-    blobs=np.array(MCMC_df.loc[MCMC_df.ID==ID,'blobs'].values[0])
-    flat_blobs=np.array(MCMC_df.loc[MCMC_df.ID==ID,'flat_blobs'].values[0])
-    labels=[]
-    truths=[]
-    for label in MCMC_df.variables.values[0]:
-        labels.append(label)
-        if label in mag_label_list: truths.append(MCMC_df.loc[MCMC_df.ID==ID,'mags'].values[0][label==mag_label_list]) 
-        elif label in color_label_list: truths.append(MCMC_df.loc[MCMC_df.ID==ID,'cols'].values[0][label==color_label_list]) 
+            txt = r"$\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}$"
+            txt = txt.format(val, eval_d, eval_u, label_list[i])
+            ax = axes[i, i]
+            ax.set_title(txt,size=22,fontweight="bold")
+            ax.axvline(val-eval_d, color="k",linestyle='-.')
+            ax.axvline(val, color="b",linestyle='-.',lw=2)    
+            ax.axvline(eval_u+val, color="k",linestyle='-.')  
+            if len(kde_list)>0:
+                x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+                y=kde_list[i].pdf(np.sort(x))
+                ax.plot(x,y, color='k',lw=2)
         
+        plt.tight_layout(w_pad=0.,h_pad=0.)
+        if isinstance(path2savedir, str): plt.savefig(path2savedir+'/cornerID%i.png'%ID, bbox_inches='tight')
+        if return_fig: 
+            plt.close()
+            return(figure)
+        else:
+            if showplots: plt.show()
+            else:plt.close('all')
+        if return_variables:
+            return(logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r)
+    # except:
+    #     if verbose or return_variables: raise ValueError('Check if %s exist. Otherwise check the routine'%path2file)
+    #     else: pass
     
+def sample_blobs(ID,mag_label_list,path2loaddir=None,color_label_list=[],showID=False,show_samples=False,sigma=3,bins=20,pranges=None,fx=3,fy=3,path2backend=None,discard=None,thin=None,labelpad=10):
+    if path2loaddir==None: path2loaddir=path2data+'/Giovanni/MCMC_analysis/samplers'
+    filename=glob(path2loaddir+'/*ID_%s'%ID)[0]
+    print('> ',filename)
+    mcmc_dict=mcmc_utils.read_samples(filename)  
+    blobs=np.array(mcmc_dict['blobs'])
+    if discard!=None: blobs=blobs[discard:, :, :]
+    if thin!=None: blobs=blobs[::thin, :, :]        
+    flat_blobs=blobs.reshape(blobs.shape[0]*blobs.shape[1],blobs.shape[2])
+    filtered_flat_blobs=sigma_clip(flat_blobs, sigma=sigma, maxiters=5,axis=0)
+    flat_blobs=filtered_flat_blobs.copy()
+    if pranges==None: 
+        pranges=[]
+        for i in  range(flat_blobs.shape[1]):
+            pranges.append((np.nanmin(flat_blobs[:,i][np.isfinite(flat_blobs[:,i])]),np.nanmax(flat_blobs[:,i][np.isfinite(flat_blobs[:,i])])))
+    label_list=[]
+    truths=[]
+    for label in mcmc_dict['variables_label']:
+        label_list.append(label) 
+    for variables in mcmc_dict['variables']:
+        truths.append(variables)
+            
     ndim=len(truths)
+    figsize=(ndim*fx,ndim*fy)
+    blobs_avg=[]
     if show_samples:
 
-        fig, axes = plt.subplots(ndim, figsize=figsize, sharex=True)
+        fig, axes = plt.subplots(ndim, figsize=(10, 10), sharex=True)
         for i in range(ndim):
             ax = axes[i]
             ax.plot(blobs[:, :, i], "k", alpha=0.3)
+            blobs_avg.append(np.round(np.percentile(flat_blobs[:, i], [50])[0],4))
             ax.axhline(truths[i])
             ax.set_xlim(0, len(blobs))
-            ax.set_ylabel(labels[i])
+            ax.set_ylabel(label_list[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
         
         axes[-1].set_xlabel("step number")
         plt.tight_layout()
+    figure=plt.figure(figsize=figsize)
+    figure = corner.corner(flat_blobs,truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=None,bins=bins,linewidth=3,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD')
+    if showID: figure.suptitle('Star ID %i'%ID)
+    axes = np.array(figure.axes).reshape((ndim, ndim))
     
-    import corner
-    fig=plt.figure(figsize=figsize)
-    fig = corner.corner(flat_blobs,truths=truths,range=pranges,labels=labels,bins=bins,quantiles=[0.16, 0.5, 0.84], show_titles=True, title_kwargs={"fontsize": 15},plot_contours=True,fig=fig)
+    for i in range(ndim):
+        x=np.sort(flat_blobs[:,i][~flat_blobs[:,i].mask])
+        mcmc = np.percentile(x, [16, 50, 84])
+        val =mcmc[1]
+        eval_d,eval_u = np.diff([mcmc[0],val,mcmc[-1]])
+        
+        txt = r"$\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}$"
+        txt = txt.format(val, eval_d, eval_u, label_list[i])
+        ax = axes[i, i]
+        ax.set_title(txt,size=18,fontweight="bold")
+        ax.axvline(val-eval_d, color="k",linestyle='-.')
+        ax.axvline(val, color="b",linestyle='-.',lw=2)    
+        ax.axvline(eval_u+val, color="k",linestyle='-.')  
+
+    
     
     plt.tight_layout()
     plt.show()
     
+

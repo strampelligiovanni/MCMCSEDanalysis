@@ -5,34 +5,40 @@ Created on Wed Sep 22 15:36:26 2021
 
 @author: giovanni
 """
-import sys,math
+import sys
 sys.path.append('./')
 sys.path.append('/mnt/Storage/Lavoro/GitHub/imf-master/imf/')
-
+# from config import path2data
+# from miscellaneus import chunks
+from kde import KDE
 import numpy as np
-import stsynphot as stsyn
-from synphot import units,ExtinctionModel1D,Observation,SourceSpectrum,SpectralElement
-from synphot.units import FLAM
-from dust_extinction.parameter_averages import CCM89
-from synphot.reddening import ExtinctionCurve
-from synphot.models import BlackBodyNorm1D
-from astropy.time import Time
+
 from astropy import units as u
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import random
+import bz2
+# import pickle
+from itertools import repeat
+# import multiprocessing as mp
+import _pickle as cPickle
+import concurrent.futures
 from IPython.display import display
-from random import random
+from numpy import trapz
+from astropy.stats import sigma_clip
+# from mcmc_plots import *
+from mcmc_plots import sample_posteriors
 
 ########################
 # Simulated photometry #
 ########################
 
-def simulate_mag_star(sat_list,variables_interp_in,mag_variable_in,Av1_list,mag_list=[],emag_list=[],var=None,Av1=None,age=None,distance=None,err=None,err_min=0.01,err_max=0.1,avg_df=None):
+
+def simulate_mag_star(ID,sat_list,variables_interp_in,mag_variable_in,Av1_list,ID_label='avg_ids',mag_list=[],emag_list=[],var=None,Av1=None,age=None,logSPacc=None,parallax=None,err=None,err_min=0.01,err_max=0.1,avg_df=None):#,sim_label='Teff'):
     if len(mag_list)==0 and len(emag_list)==0: 
-        mag_temp_list=np.round(np.array([float(variables_interp_in[i](np.log10(var),np.log10(age)))+Av1_list[i]*Av1+5*np.log10(distance/10) for i in range(len(variables_interp_in))]),3)
-        # err_array=np.array([np.random.uniform(-0.25,0.25)*[0,0,0,0,0,0][i] for i in range(6)])
-        # print('> fake error array:',err_array)
-        # mag_temp_list+=err_array
+        distance=(parallax* u.pc).to(u.mas, equivalencies=u.parallax()).value
+        DM=5*np.log10(distance/10)
+        mag_temp_list=np.round(np.array([float(variables_interp_in[i](np.log10(var),np.log10(age),logSPacc))+Av1_list[i]*Av1+DM for i in mag_variable_in]),3)
         emag_temp_list=[]
         if err!=None:
             emag_list=np.array([err]*len(mag_temp_list))
@@ -43,17 +49,27 @@ def simulate_mag_star(sat_list,variables_interp_in,mag_variable_in,Av1_list,mag_
                 emag_label='e%s'%(mag_variable_in[i][1:4])
                 if mag_label in avg_df.columns: df=avg_df
                 else: raise ValueError('%s found in no dataframe'%mag_label)
-                err=np.nanmedian(df.loc[(df[mag_label]>=mag_temp_list[i]-0.5)&(df[mag_label]<=mag_temp_list[i]+0.5),emag_label].values)
-                # emag_list.append(np.round(err,3))
-                emag_list.append(err)
+                err_temp=np.nanmedian(df.loc[(df[mag_label]>=mag_temp_list[i]-0.5)&(df[mag_label]<=mag_temp_list[i]+0.5),emag_label].values)            
+                emag_list.append(err_temp+0.02)
         emag_list=np.array(emag_list)   
-        # mag_list=np.array([round(mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]),3) for i in range(len(variables_interp_in))])
-        mag_list=np.array([mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]) for i in range(len(variables_interp_in))])
+        mag_list=np.array([mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]) for i in range(len(mag_temp_list))])
     else:
         mag_temp_list=np.copy(mag_list)
         if err!=None: emag_list=np.array([err]*len(mag_temp_list))
+        # else: emag_list+=0.02
+
     emag_temp_list=np.copy(emag_list)
-    mag_good_list=(emag_list<=err_max)&(mag_list>=sat_list)
+    mag_good_list=[True]*len(mag_variable_in)
+    for elno in range(len(mag_variable_in)):
+        if sat_list[elno] == 'N/A':
+            f_spx=avg_df.loc[avg_df[ID_label]==ID,'f_%s'%mag_variable_in[elno]].values[0]
+            if (np.isnan(mag_list[elno]))|(np.isnan(emag_list[elno]))|(emag_list[elno] >=err_max)|(f_spx==3): mag_good_list[elno]=False
+        else:
+            if (np.isnan(mag_list[elno]))|(np.isnan(emag_list[elno]))|(emag_list[elno] >=err_max)|(mag_list[elno]<=sat_list[elno]): 
+                mag_good_list[elno]=False
+            
+    # mag_good_list=(emag_list<=err_max)&(mag_list>=sat_list)
+    mag_good_list=np.array(mag_good_list)
     mag_list[~mag_good_list]=np.nan
     emag_list[~mag_good_list]=np.nan
     # return(np.round(mag_list,4),np.round(emag_list,4),np.round(mag_temp_list,4),np.round(emag_temp_list,4),mag_good_list)
@@ -71,58 +87,13 @@ def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_l
         k=np.where(mag2_label == mag_label_list)[0][0]
         color_list.append(mag_list[j]-mag_list[k])
         ecolor_list.append(np.sqrt(emag_list[j]**2+emag_list[k]**2))
-        Av1_color_list.append(Av1_list[j]-Av1_list[k])
+        # Av1_color_list.append(Av1_list[j]-Av1_list[k])
+        Av1_color_list.append(Av1_list[mag1_label]-Av1_list[mag2_label])
         if np.isnan(color_list[-1]): color_good_list.append(False)
         else: color_good_list.append(True)
-    return(np.array(color_list),np.array(ecolor_list),np.array(Av1_color_list),color_good_list)
+    return(np.array(color_list),np.array(ecolor_list),np.array(Av1_color_list),np.array(color_good_list))
 
-def get_Av_list(filter_label_list,date='2005-01-1',verbose=False,Av=1):
-    obsdate = Time(date).mjd
-    vegaspec = SourceSpectrum.from_vega()  
-    Dict = {}
-    
-    wav = np.arange(3000, 15000,10) * u.AA
-    extinct = CCM89(Rv=3.1)
-    ex = ExtinctionCurve(ExtinctionModel1D,points=wav, lookup_table=extinct.extinguish(wav, Av=Av))
-    vegaspec_ext = vegaspec*ex
-    
-    band = SpectralElement.from_filter('johnson_v')#555
-    sp_obs = Observation(vegaspec_ext, band)
-    sp_obs_before = Observation(vegaspec, band)
-    
-    sp_stim_before = sp_obs_before.effstim(flux_unit='vegamag', vegaspec=vegaspec)
-    sp_stim = sp_obs.effstim(flux_unit='vegamag', vegaspec=vegaspec)
-    
-    if verbose:
-        print('before dust, V =', np.round(sp_stim_before,4))
-        print('after dust, V =', np.round(sp_stim,4))
-        flux_spectrum_norm = vegaspec(wav).to(FLAM, u.spectral_density(wav))
-        flux_spectrum_ext = vegaspec_ext(wav).to(FLAM, u.spectral_density(wav))
-        plt.semilogy(wav,flux_spectrum_norm,label='Av = 0')
-        plt.semilogy(wav,flux_spectrum_ext,label='Av = %s'%Av)
-        plt.legend()
-        plt.ylabel('Flux [FLAM]')
-        plt.xlabel('Wavelength [A]')
-        plt.xlim(3000, 15000)
-        plt.show()
-    
-        # Calculate extinction and compare to our chosen value.
-        Av_calc = sp_stim - sp_stim_before
-        print('Av = ', np.round(Av_calc,4))
-    
-    for filter in filter_label_list:
-        if filter in ['F130N','F139M']:
-            obs = Observation(vegaspec, stsyn.band('wfc3,ir,%s'%filter.lower()))
-            obs_ext = Observation(vegaspec_ext, stsyn.band('wfc3,ir,%s'%filter.lower()))
-        else:
-            obs = Observation(vegaspec, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}'%filter.lower()))
-            obs_ext = Observation(vegaspec_ext, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}'%filter.lower()))
-            
-        if verbose: 
-            # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
-            print('AV=1 %s'%filter,np.round(obs_ext.effstim('vegamag',vegaspec=vegaspec)-obs.effstim('vegamag',vegaspec=vegaspec),4))
-        Dict[filter]=np.round((obs_ext.effstim('vegamag',vegaspec=vegaspec)-obs.effstim('vegamag',vegaspec=vegaspec)).value,4)
-    return(Dict)
+
 
 # def get_Av_list(interp_mags,interp_Tlogg,filter_label_list,mag_label_list,photflam,Rv,date='2005-01-1',DM=0,mass=1,age=1,Av=1,showplot=False,photlam658=1.977e-18):
 #     obsdate = Time(date).mjd
@@ -207,75 +178,144 @@ def truth_list(mass,Av,age,mass_lim=[0.1,0.9],Av_lim=[0,10],age_lim=[0,100]):
     if age==None:age=np.round(random.uniform(age_lim[0],age_lim[1]),4)
     return(mass,Av,age)
     
+def read_samples(filename):
+    with bz2.BZ2File(filename, 'r') as f:
+         x = cPickle.load(f)
+    return(x)
 
+####################
+# Update dataframe #
+####################
 
+def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],pmin=1.66,pmax=3.30,path2savedir=None,return_fig=False):
+    ntarget=len(file_list)
+    if kde_fit:
+        for file in tqdm(file_list):
+            ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r=task(file,interp,kde_fit,discard,thin,label_list,pmin=pmin,pmax=pmax,path2savedir=path2savedir,return_fig=return_fig)
+            df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
+    else:
+        print('> workers %i,chunksize %i,ntarget %i'%(workers,chunksize,ntarget))    
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+            for ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r in tqdm(executor.map(task,file_list,repeat(interp),repeat(kde_fit),repeat(discard),repeat(thin),repeat(label_list),repeat(pmin),repeat(pmax),repeat(path2savedir),repeat(return_fig),chunksize=chunksize)):
+                df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
+    return(df)
+
+def task(file,interp,kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],pmin=1.66,pmax=3.30,path2savedir=None,return_fig=False):
+    ndim=len(label_list)
+    ID=float(file.split('_')[-1])
+    mcmc_dict=read_samples(file)  
+    samples=np.array(mcmc_dict['samples'])
+    if len(samples)>0:
+        # if discard!=None: samples=samples[discard:, :, :]
+        # if thin!=None: samples=samples[::thin, :, :]        
+        # flat_samples=samples.reshape(samples.shape[0]*samples.shape[1],samples.shape[2])
+        # filtered_flat_sample=sigma_clip(flat_samples, sigma=3.5, maxiters=5,axis=0)
+        # flat_samples=filtered_flat_sample.copy()
+        logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=sample_posteriors(interp,float(ID),ndim,verbose=False,fx=10,fy=10,show_samples=False,showplots=False,bins=10,kde_fit=kde_fit,return_fig=False,return_variables=True,path2savedir=path2savedir,pranges=None)
+        # a=sample_posteriors(interp,float(ID),ndim,verbose=False,fx=10,fy=10,show_samples=False,bins=10,kde_fit=kde_fit,return_fig=return_fig,return_variables=True,path2savedir=path2savedir,pranges=None)
+        Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
+        eDist_d=Dist-((Parallax+eParallax_u)*u.mas).to(u.parsec, equivalencies=u.parallax()).value
+        eDist_u=((Parallax-eParallax_d)*u.mas).to(u.parsec, equivalencies=u.parallax()).value-Dist
+        return([ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r])
+    else:
+        return([ID,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan])
+        
 ################################
 # Star and accretion proprties #
 ################################
-
-def star_properties(flat_samples,ndim,interp_star_properties,mlabel):
-    if mlabel == '4':
-        for i in range(ndim):
-            mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
-            q = np.diff(mcmc)
-            if i == 0: 
-                T= round(mcmc[1],4)
-                eT_u= round(q[1],4)
-                eT_d= round(q[0],4)
-            elif i == 1: 
-                Av= round(mcmc[1],4)
-                eAv_u= round(q[1],4)
-                eAv_d= round(q[0],4)
-            elif i == 2: 
-                age= round(mcmc[1],4)
-                eage_u= round(q[1],4)
-                eage_d= round(q[0],4)
-                
-        mass=round(float(interp_star_properties[0](np.log10(T),np.log10(age))),4)
-        emass_u=round(float(interp_star_properties[0](np.log10(T+eT_u),np.log10(age+eage_u)))-mass,4)
-        emass_d=round(mass-float(interp_star_properties[0](np.log10(T-eT_d),np.log10(age-eage_d))),4)
-        
-        if emass_u <=0: emass_u = 0.1*mass
-        if emass_d <=0: emass_d=emass_u
+def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mass',T_label='teff',logL_label='logL',logLacc_label='logLacc',logMacc_label='logMacc',label_list=['mass','Av','Age','logSPacc','Parallax'],bw_method=None,kernel='linear',bandwidth2fit=np.linspace(0.01, 1, 100),kde_fit=False,path2savedir=None,return_fig=False):
+    # flat_samples=samples.reshape(samples.shape[0]*samples.shape[1],samples.shape[2])
+    val_list=[]
+    q_d_list=[]
+    q_u_list=[]
+    kde_list=[]
+    for i in range(ndim):
+        x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+        mcmc = np.percentile(x, [16, 50, 84])
+        area_r = 0
+        if kde_fit:
+            xlinspace=np.linspace(min(x),max(x),1000)
+            # xlinspace=np.linspace(min(flat_samples[:,i]),max(flat_samples[:,i]),1000)
+            kde=KDE(np.sort(x), xlinspace, bandwidth=bw_method,kernel=kernel,bandwidth2fit=bandwidth2fit)
+            kde.kde_sklearn()
+            kde_list.append(kde)
     
-        L=round(float(10**interp_star_properties[1](np.log10(T),np.log10(age))),4)
-        eL_u=round(float(10**interp_star_properties[1](np.log10(T+emass_u),np.log10(age+eage_u)))-L,4)
-        eL_d=round(L-float(10**interp_star_properties[1](np.log10(T-emass_d),np.log10(age-eage_d))),4)
-        
-        if eL_u <=0: eL_u = 0.1*L
-        if eL_d <=0: eL_d=eL_u
-    else: 
-        for i in range(ndim):
-            mcmc = np.percentile(flat_samples[:, i], [16, 50, 84])
-            q = np.diff(mcmc)
-            if i == 0: 
-                mass= round(mcmc[1],4)
-                emass_u= round(q[1],4)
-                emass_d= round(q[0],4)
-            elif i == 1: 
-                Av= round(mcmc[1],4)
-                eAv_u= round(q[1],4)
-                eAv_d= round(q[0],4)
-            elif i == 2: 
-                age= round(mcmc[1],4)
-                eage_u= round(q[1],4)
-                eage_d= round(q[0],4)
-                
-        T=round(float(interp_star_properties[0](np.log10(mass),np.log10(age))),4)
-        eT_u=round(float(interp_star_properties[0](np.log10(mass+emass_u),np.log10(age+eage_u)))-T,4)
-        eT_d=round(T-float(interp_star_properties[0](np.log10(mass-emass_d),np.log10(age-eage_d))),4)
-
-        if eT_u <=0: eT_u = 0.1*T
-        if eT_d <=0: eT_d=eT_u
-    
-        L=round(float(10**interp_star_properties[1](np.log10(mass),np.log10(age))),4)
-        eL_u=round(float(10**interp_star_properties[1](np.log10(mass+emass_u),np.log10(age+eage_u)))-L,4)
-        eL_d=round(L-float(10**interp_star_properties[1](np.log10(mass-emass_d),np.log10(age-eage_d))),4)
-        
-        if eL_u <=0: eL_u = 0.1*L
-        if eL_d <=0: eL_d=eL_u
+            pdf_max=np.max(kde.pdf(xlinspace))
+            w=np.where(kde.pdf(xlinspace)==pdf_max)
+            val=np.nanmedian(xlinspace[w])
             
-    return(mass,emass_u,emass_d,Av,eAv_u,eAv_d,age,eage_u,eage_d,T,eT_u,eT_d,L,eL_u,eL_d)
+            if i == ndim-1:
+                xlinspace2=xlinspace[(xlinspace>pmin)&(xlinspace<pmax)]
+                try: 
+                    area2 = trapz(kde.pdf(xlinspace2), dx=0.01)
+                    area = trapz(kde.pdf(xlinspace), dx=0.01)
+                    area_r=area2/area
+                except: 
+                    area_r = 0
+                
+        else: val =mcmc[1]
+        q = np.diff([mcmc[0],val,mcmc[-1]])
+        if label_list[i]=='Parallax':
+            if (val-q[0]<0) or (mcmc[0]>val):q[0]=np.nan
+            if (val+q[1]<0) or (mcmc[-1]<val):q[1]=np.nan
+            val_list.append(val)
+            q_d_list.append(q[0])
+            q_u_list.append(q[1])
+        else:    
+            if (10**(val-q[0])<0) or (10**(mcmc[0])>10**val):q[0]=np.nan
+            if (10**(val+q[1])<0) or (10**(mcmc[-1])<10**val):q[1]=np.nan
+            val_list.append(val)
+            q_d_list.append(q[0])
+            q_u_list.append(q[1])
+    
+    logMass,logAv,logAge,logSPacc,Parallax=val_list
+    # logMass=-0.77-0.98
+    elogMass_d,elogAv_d,elogAge_d,elogSPacc_d,eParallax_d=q_d_list
+    elogMass_u,elogAv_u,elogAge_u,elogSPacc_u,eParallax_u=q_u_list
+    
+    mass_u=10**(logMass+elogMass_u)
+    mass_d=10**(logMass-elogMass_d)
+
+    Age_u=10**(logAge+elogAge_u)
+    Age_d=10**(logAge-elogAge_d)
+
+    SPacc_u=10**(logSPacc+elogSPacc_u)
+    SPacc_d=10**(logSPacc-elogSPacc_d)
+    
+    T=round(float(interp[T_label](logMass,logAge,logSPacc)),4)
+    eT_u=round(float(interp[T_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))-T,4)
+    eT_d=round(T-float(interp[T_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d))),4)
+    if np.isnan(eT_d):eT_d=eT_u
+    elif np.isnan(eT_u):eT_u=eT_d
+
+    L=10**float(interp[logL_label](logMass,logAge,logSPacc))
+    L_u=10**float(interp[logL_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
+    L_d=10**float(interp[logL_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+    elogL_u=round(np.log10(L+L_u)-np.log10(L),4)
+    elogL_d=round(np.log10(L)-np.log10(L-L_d),4)
+    if np.isnan(elogL_d):elogL_d=elogL_u
+    elif np.isnan(elogL_u):elogL_u=elogL_d
+    logL=round(np.log10(L),4)
+
+    Lacc=10**float(interp[logLacc_label](logMass,logAge,logSPacc))
+    Lacc_u=10**float(interp[logLacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
+    Lacc_d=10**float(interp[logLacc_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+    elogLacc_u=round(np.log10(Lacc+Lacc_u)-np.log10(Lacc),4)
+    elogLacc_d=round(np.log10(Lacc)-np.log10(Lacc-Lacc_d),4)
+    if np.isnan(elogLacc_d):elogLacc_d=elogLacc_u
+    elif np.isnan(elogLacc_u):elogLacc_u=elogLacc_d
+    logLacc=round(np.log10(Lacc),4)    
+    
+    Macc=10**float(interp[logMacc_label](logMass,logAge,logSPacc))
+    Macc_u=10**float(interp[logMacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
+    Macc_d=10**float(interp[logMacc_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+    elogMacc_u=round(np.log10(Macc+Macc_u)-np.log10(Macc),4)
+    elogMacc_d=round(np.log10(Macc)-np.log10(Macc-Macc_d),4)
+    if np.isnan(elogMacc_d):elogMacc_d=elogMacc_u
+    elif np.isnan(elogMacc_u):elogMacc_u=elogMacc_d
+    logMacc=round(np.log10(Macc),4)    
+
+    return(logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r)
 
 def lum_corr(MCMC_sim_df,ID,interp_mags,interp_cols,Av_list,DM,L,mag_label_list,color_label_list,verbose=False,truths=[None,None,None]):
     if verbose: display(MCMC_sim_df.loc[MCMC_sim_df.ID==ID])
@@ -438,7 +478,7 @@ def accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,zpt658,photlam658,Msun,L
             
     return(MCMC_sim_df)
 
-def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,interp_658,DM,Av_list,Av_658,zpt658,photlam658,Msun,Lsun,eLsun,Rsun,d,ed,sigma,RW,showplot=False,verbose=False,ID_list=[],p='',s685=3,EQ_th=10): 
+def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,interp_658,DM,Av_list,Av_658,zpt658,photlam658,Msun,Lsun,eLsun,Rsun,d,ed,sigma,RW,ID_label='avg_ids',showplot=False,verbose=False,ID_list=[],p='',s685=3,EQ_th=10): 
     MCMC_sim_df[['emass']]=MCMC_sim_df[['emass_d','emass_u']].mean(axis=1)
     MCMC_sim_df[['eAv']]=MCMC_sim_df[['eAv_d','eAv_u']].mean(axis=1)
     MCMC_sim_df[['eA']]=MCMC_sim_df[['eA_d','eA_u']].mean(axis=1)
@@ -457,8 +497,8 @@ def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,i
             m435,m555,m775,m850=mag_list
             e435,e555,e775,e850=emag_list
 
-            m658=avg_df.loc[avg_df.UniqueID==ID,'m658%s'%p].values[0]
-            e658=avg_df.loc[avg_df.UniqueID==ID,'e658%s'%p].values[0]
+            m658=avg_df.loc[avg_df[ID_label]==ID,'m658%s'%p].values[0]
+            e658=avg_df.loc[avg_df[ID_label]==ID,'e658%s'%p].values[0]
 
             m435-=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'Av'].values[0]*Av_list[0]
             m555-=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'Av'].values[0]*Av_list[1]
@@ -510,11 +550,38 @@ def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,i
                         'logdM_acc', 'elogdM_acc']]=np.nan
     return(MCMC_sim_df)
 
+
 #############
 # Ancillary #
 #############
 
-def round_up(n, decimals=0):
-    multiplier = 10 ** decimals
-    return math.ceil(n * multiplier) / multiplier
+# def round_up(n, decimals=0):
+#     multiplier = 10 ** decimals
+#     return math.ceil(n * multiplier) / multiplier
 
+# def get_kde_pdf(x_sort,bw_method,kernel='linear',auto_adjust=True):
+#     xlinspace=np.linspace(min(x_sort),max(x_sort),1000)
+    
+#     kde=KDE(x_sort, xlinspace, bandwidth=bw_method,kernel=kernel)
+    
+#     # my_pdf = gaussian_kde(x_sort,bw_method=bw_method)
+#     # my_pdf=kde_sklearn(x_sort, xlinspace, bandwidth=bw_method,kernel=kernel)
+#     # if auto_adjust:
+#     #     grid = GridSearchCV(KernelDensity(),
+#     #                 {'bandwidth': np.linspace(0.01, 10, 1000)},
+#     #                 cv=20,n_jobs=10) # 20-fold cross-validation
+#     #     grid.fit(x_sort[:, None])
+#     return(kde)
+        # pdf_max=np.max(my_pdf(xlinspace))
+        # w=np.where(my_pdf(xlinspace)==pdf_max)
+        # val=np.round(np.nanmedian(xlinspace[w]),2)
+        # spline = UnivariateSpline(xlinspace, my_pdf(xlinspace)-np.nanmax(my_pdf(xlinspace))/2, s=0)
+        # r1= spline.roots()[0] 
+        # r2= spline.roots()[-1]  # find the roots
+        # if r2<val: r2=np.nanmax(xlinspace)
+        # if r1>val: r1=np.nanmin(xlinspace)
+        # bw_method2=round((abs(r2-r1)/abs(max(xlinspace)-min(xlinspace)))/2,2)
+        # if bw_method2<=0.1: bw_method2=0.1
+        # my_new_pdf = gaussian_kde(x_sort,bw_method=bw_method2)
+        # return(my_new_pdf,r1,r2)
+    # else: return(my_pdf,np.nan,np.nan)
