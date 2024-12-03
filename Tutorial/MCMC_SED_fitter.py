@@ -82,7 +82,7 @@ def interpolating_isochrones(path2data, mag_label_list, redo=False, smooth=0.001
         y=np.log10(iso_df.index.get_level_values('Age').values).ravel()
         z=iso_df.index.get_level_values('logAcc').values.ravel()
 
-        interp_btsettl=miscellaneus.interpND([x,y,z,node_list],method=method,showplot=showplot,smooth=smooth,z_label=node_label_list,workers=5)
+        interp_btsettl=mcmc_utils.interpND([x,y,z,node_list],method=method,showplot=showplot,smooth=smooth,z_label=node_label_list,workers=5)
 
         with open(path2data+"/Giovanni/Synthetic Photometry/interpolated_isochrones.pck", 'wb') as file_handle:
             pickle.dump(interp_btsettl , file_handle)
@@ -162,8 +162,6 @@ if __name__ == '__main__':
     sat_list = ['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
     mag_label_list = ['m'+i[1:4] for i in filter_list]
 
-    # Assembling Spectra dataframes
-    spAcc,spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2data)
     #Interpolating Isochrones
     interp_btsettl = interpolating_isochrones(path2data,mag_label_list)
     # Creating dictionary
@@ -171,7 +169,10 @@ if __name__ == '__main__':
     # Loading priors
     parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0 = assembling_priors(path2data)
 
-    # This is the start of the MCMC run
+    ################################################################################################################
+    # This is the start of the MCMC run                                                                            #
+    ################################################################################################################
+
     ID_list = [8] #[8,35,77,209]
     print(ONC_combined_df.loc[ONC_combined_df.avg_ids.isin(ID_list)])
 
@@ -201,7 +202,14 @@ if __name__ == '__main__':
               mass_KDE=mass_KDE0,
               savedir=path2data+'/MCMC_analysis/samplers')
 
-    run(mcmc, ONC_combined_df, ID_list)
+    run(mcmc, ONC_combined_df, ID_list) # ---> This will run the MCMC and save the sampler
+
+    ################################################################################################################
+    # This part is very specific for my ONC Work.                                                                  #
+    # I used these routines to update the DF with the generated new values and draw the summary plots.             #
+    # You can always read the sampler in the samplers dir and sample the posterior and generate your own plots     #
+    # skipping entirely this section.                                                                              #
+    ################################################################################################################
 
     # Sampling posteriors
     file_list=[]
@@ -216,6 +224,8 @@ if __name__ == '__main__':
                                                   path2savedir=path2data+'/MCMC_analysis/corners')
 
     # Saving summary plot
+    # Assembling Spectra dataframes for final plots
+    spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2data)
     for ID in tqdm(ID_list):
         file = path2data+'/MCMC_analysis/corners/cornerID%i.png' % int(ID)
         img = mpimg.imread(file)
