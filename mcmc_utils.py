@@ -43,7 +43,7 @@ class HiddenPrints:
 ########################
 
 
-def simulate_mag_star(ID,sat_list,variables_interp_in,mag_variable_in,Av1_list,ID_label='avg_ids',mag_list=[],emag_list=[],var=None,Av1=None,age=None,logSPacc=None,parallax=None,err=None,err_min=0.01,err_max=0.1,avg_df=None):#,sim_label='Teff'):
+def simulate_mag_star(ID,sat_list,variables_interp_in,mag_variable_in,Av1_list,ID_label='avg_ids',mag_list=[],emag_list=[],var=None,Av1=None,age=None,logSPacc=None,parallax=None,err=None,err_min=0.01,err_max=0.1,avg_df=None,f_spx_max=3):#,sim_label='Teff'):
     if len(mag_list)==0 and len(emag_list)==0: 
         distance=(parallax* u.pc).to(u.mas, equivalencies=u.parallax()).value
         DM=5*np.log10(distance/10)
@@ -72,7 +72,7 @@ def simulate_mag_star(ID,sat_list,variables_interp_in,mag_variable_in,Av1_list,I
     for elno in range(len(mag_variable_in)):
         if sat_list[elno] == 'N/A':
             f_spx=avg_df.loc[avg_df[ID_label]==ID,'f_%s'%mag_variable_in[elno]].values[0]
-            if (np.isnan(mag_list[elno]))|(np.isnan(emag_list[elno]))|(emag_list[elno] >=err_max)|(f_spx==3): mag_good_list[elno]=False
+            if (np.isnan(mag_list[elno]))|(np.isnan(emag_list[elno]))|(emag_list[elno] >=err_max)|(f_spx==f_spx_max): mag_good_list[elno]=False
         else:
             if (np.isnan(mag_list[elno]))|(np.isnan(emag_list[elno]))|(emag_list[elno] >=err_max)|(mag_list[elno]<=sat_list[elno]): 
                 mag_good_list[elno]=False
@@ -102,84 +102,74 @@ def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_l
         else: color_good_list.append(True)
     return(np.array(color_list),np.array(ecolor_list),np.array(Av1_color_list),np.array(color_good_list))
 
+def get_Av_list(filter_label_list, date='2005-01-1',xlim=[3000, 15000], ylim=[1e-10, 1e-8], verbose=False, Av=1, Rv=3.1):
+    obsdate = Time(date).mjd
+    vegaspec = SourceSpectrum.from_vega()
+    Dict = {}
 
+    wav = np.arange(3000, 15000, 10) * u.AA
+    extinct = CCM89(Rv=Rv)
+    ex = ExtinctionCurve(ExtinctionModel1D, points=wav, lookup_table=extinct.extinguish(wav, Av=Av))
+    vegaspec_ext = vegaspec * ex
 
-# def get_Av_list(interp_mags,interp_Tlogg,filter_label_list,mag_label_list,photflam,Rv,date='2005-01-1',DM=0,mass=1,age=1,Av=1,showplot=False,photlam658=1.977e-18):
-#     obsdate = Time(date).mjd
+    band = SpectralElement.from_filter('johnson_v')  # 555
+    sp_obs = Observation(vegaspec_ext, band)
+    sp_obs_before = Observation(vegaspec, band)
 
-#     bp435=stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
-#     bp555=stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
-#     bp658=stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
-#     bp775=stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
-#     bp850=stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
+    sp_stim_before = sp_obs_before.effstim(flux_unit='vegamag', vegaspec=vegaspec)
+    sp_stim = sp_obs.effstim(flux_unit='vegamag', vegaspec=vegaspec)
 
-#     bp130=stsyn.band('wfc3,ir,f130n')
-#     bp139=stsyn.band('wfc3,ir,f139m')
+    if verbose:
+        print('before dust, V =', np.round(sp_stim_before, 4))
+        print('after dust, V =', np.round(sp_stim, 4))
+        flux_spectrum_norm = vegaspec(wav).to(FLAM, u.spectral_density(wav))
+        flux_spectrum_ext = vegaspec_ext(wav).to(FLAM, u.spectral_density(wav))
 
-#     bp_list=[bp435,bp555,bp775,bp850,bp130,bp139]
+        plt.semilogy(wav, flux_spectrum_norm, label='Av = 0')
+        plt.semilogy(wav, flux_spectrum_ext, label='Av = %s' % Av)
+        plt.legend()
+        plt.ylabel('Flux [FLAM]')
+        plt.xlabel('Wavelength [A]')
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        plt.show()
 
-#     mag_sel_list=[interp_mags[i](np.log10(mass),np.log10(age))+DM for i in range(len(mag_label_list))]
-#     T=interp_Tlogg[0](np.log10(mass),np.log10(age))
-#     logg=interp_Tlogg[1](np.log10(mass),np.log10(age))
-#     wavelengths_list=[]
-#     sp = SourceSpectrum(BlackBodyNorm1D, temperature=T)
-#     binset = range(1000, 30001)
+        # Calculate extinction and compare to our chosen value.
+        Av_calc = sp_stim - sp_stim_before
+        print('Av = ', np.round(Av_calc, 4))
 
-#     for bp in bp_list:
-#         wavelengths_list.append(Observation(sp, bp, binset=binset).effective_wavelength())
+    if any('johnson' in string for string in filter_label_list):
+        for filter in filter_label_list:
+            obs = Observation(vegaspec, SpectralElement.from_filter(filter))
+            obs_ext = Observation(vegaspec_ext, SpectralElement.from_filter(filter))
+            if verbose:
+                # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
+                print('AV=1 %s' % filter, np.round(
+                    obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec), 4))
+            Dict[filter] = np.round(
+                (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
+    else:
+        for filter in filter_label_list:
+            if filter in ['F130N', 'F139M']:
+                obs = Observation(vegaspec, stsyn.band('wfc3,ir,%s' % filter.lower()))
+                obs_ext = Observation(vegaspec_ext, stsyn.band('wfc3,ir,%s' % filter.lower()))
+            elif filter in ['F336W', 'F439W', 'F656N', 'F814W']:
+                obs = Observation(vegaspec, stsyn.band('acs,wfpc2,%s' % filter.lower()))
+                obs_ext = Observation(vegaspec_ext, stsyn.band('acs,wfpc2,%s' % filter.lower()))
+            elif filter in ['F110W', 'F160W']:
+                obs = Observation(vegaspec, stsyn.band('nicmos,3,%s' % filter.lower()))
+                obs_ext = Observation(vegaspec_ext, stsyn.band('nicmos,3,%s' % filter.lower()))
+            else:
+                obs = Observation(vegaspec, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}' % filter.lower()))
+                obs_ext = Observation(vegaspec_ext, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}' % filter.lower()))
 
-#     wavelengths_658=Observation(sp, bp658, binset=binset).effective_wavelength()
-
-#     sp = stsyn.grid_to_spec('phoenix', T, 0, logg)
-
-#     band =stsyn.band('acs,wfc1,f555w') # SpectralElement.from_filter('johnson_v')#555
-#     vega = SourceSpectrum.from_vega()
-#     mag = np.array(mag_sel_list)[np.array(filter_label_list)=='F555W'][0]* units.VEGAMAG
-#     sp_norm = sp.normalize(mag , band, vegaspec=vega)
-
-#     wav = binset * u.AA
-#     flux = sp_norm(wav).to(FLAM, u.spectral_density(wav))#*1e3/dist_ist[-1]
-
-#     if showplot:
-#         plt.figure(figsize=(7,7))
-#         plt.loglog(wav.value, flux.value)
-#         plt.title('Blackbody T=%.2f'%T)
-#         plt.ylabel('FLAM')
-#         plt.xlabel('$\lambda$ [AA]')
-#         plt.show()
-        
-        
-#     ext = CCM89(Rv=Rv)
-    
-#     # Make the extinction model in synphot using a lookup table.
-#     ex = ExtinctionCurve(ExtinctionModel1D,
-#                          points=wav, lookup_table=ext.extinguish(wav, Av=Av))
-#     sp_ext = sp_norm*ex
-
-#     flux_ext = sp_ext(wav).to(FLAM, u.spectral_density(wav))
-
-#     if showplot:
-#         plt.figure(figsize=(7,7))
-#         plt.loglog(wav, flux_ext)
-#         plt.title('Blackbody T=%.2f Av=%.3f'%(T,Av))
-#         plt.ylabel('FLAM')
-#         plt.xlabel('$\lambda$ [AA]')
-#         plt.show()
-        
-#     Av_list=[]
-
-#     for n in range(len(filter_label_list)):
-#         qq=np.where(np.array(wav.value)==round(wavelengths_list[n].value))[0]
-#         Av1_mag=-2.5*np.log10((sp_ext(wav).to(FLAM, u.spectral_density(wav))[qq]/photflam[n]).value)[0]
-#         Av0_mag=-2.5*np.log10((sp_norm(wav).to(FLAM, u.spectral_density(wav))[qq]/photflam[n]).value)[0]
-#         Av_list.append(round(Av1_mag-Av0_mag,5))
-    
-#     qq=np.where(np.array(wav.value)==round(wavelengths_658.value))[0]
-#     Av1_mag=-2.5*np.log10((sp_ext(wav).to(FLAM, u.spectral_density(wav))[qq]/(photlam658)).value)[0]
-#     Av0_mag=-2.5*np.log10((sp_norm(wav).to(FLAM, u.spectral_density(wav))[qq]/(photlam658)).value)[0]
-#     Av_658=round(Av1_mag-Av0_mag,5)
-        
-#     return(np.array(Av_list),Av_658)
+            if verbose:
+                # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
+                print('AV=1 %s' % filter, np.round(
+                    obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec), 4))
+            Dict['m%s' % filter[1:4]] = np.round(
+                (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
+    return (Dict)
 
 def truth_list(mass,Av,age,mass_lim=[0.1,0.9],Av_lim=[0,10],age_lim=[0,100]):
     if mass==None:mass=np.round(random.uniform(mass_lim[0],mass_lim[1]),4)
