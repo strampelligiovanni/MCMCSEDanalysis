@@ -37,7 +37,7 @@ class MCMC():
     #Main body #
     ############
     
-    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],mu_sigma_t=[2,1],ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',logLacc_label='logLacc',elogLacc_label='elogLacc',parallax_label='parallax',eparallax_label='parallax_error',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
+    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,sigma_T=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],mu_sigma_t=[2,1],ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
         '''
         This is the initialization step of the MCMC class. The MCMC can be run to fit 3 varables at the time. The variables for the fit are:
         [logMass, logAv, Age]. 
@@ -97,6 +97,8 @@ class MCMC():
             label identifing the Teff in the avg dataframe. The default is 'Teff'.
         eTeff_label : str, optional
             label identifing the error on Teff in the avg dataframe. The default is 'eTeff'.
+        sigma_T : float, optional
+            devault value for eTeff if not provided the catalog. The default is 150.
         parallax_label : str, optional
             label identifing the parallax of the star in the avg dataframe. The default is 'parallax'.
         eparallax_label : str, optional
@@ -121,7 +123,9 @@ class MCMC():
              gaussian_kde instance as only parameter and return a scalar. If None, 'scott' is used. The default is 0.01.
         blobs : bool, optional
             enable/disable blobs in MCMC. The default is False (NOT WORKING AT THE MOMENT).
-        nmag2fit:
+        mags2fit: list, optional
+            list to downselect the input magnitudes list to fit. Default [].
+        nmag2fit: int, optional
             number of good magnitude to fit in the magnitude_color_fit. It will start from the first good one and counting. The default is 1.            
         magnitude_fit : bool, optional
             enable/disable magnitude fit. The default is False.
@@ -140,8 +144,6 @@ class MCMC():
         simulation : bool, optional
             enable/disable simulations. If true, it will simulate magnitudes and color interpolating the input thruths with interp_mags and interp_colors
             The default is False.
-        # display_priors : bool, optional
-        #     show all priors in the likelihood. The default is False.
 
         Returns
         -------
@@ -150,8 +152,8 @@ class MCMC():
         '''
         self.interp=interp
         
-        self.mag_label_list=mag_label_list
-        self.emag_label_list=['e%s'%i[1:] for i in mag_label_list]
+        self.mag_label_list=np.array(mag_label_list)
+        self.emag_label_list=np.array(['e%s'%i[1:] for i in mag_label_list])
         self.sat_dict=sat_dict
         self.AV_dict=AV_dict
         self.parallax_KDE=parallax_KDE
@@ -164,9 +166,6 @@ class MCMC():
 
         self.parallax=parallax
         self.eparallax=eparallax
-        # self.d=dist*u.pc.to(u.cm)*u.cm
-        # self.ed=edist*u.pc.to(u.cm)*u.cm
-        # self.DM=5*np.log10(dist/10)
         
         self.discard=discard
         self.thin=thin
@@ -187,8 +186,6 @@ class MCMC():
         self.workers=workers
         self.Teff_label=Teff_label
         self.eTeff_label=eTeff_label
-        self.logLacc_label=logLacc_label
-        self.elogLacc_label=elogLacc_label
         self.parallax_label=parallax_label
         self.eparallax_label=eparallax_label
         self.WCaII_label=WCaII_label
@@ -201,8 +198,7 @@ class MCMC():
         self.parallelize_runs=parallelize_runs
         self.parallelize_sampler=parallelize_sampler
         self.simulation=simulation
-        # self.display_priors=display_priors
-        
+
         self.err=err
         self.err_max=err_max
         self.err_min=err_min
@@ -218,6 +214,7 @@ class MCMC():
         self.Fconv=Fconv
         self.conv_thr=conv_thr
         self.ndesired=ndesired
+        self.sigma_T=sigma_T
 
 def run(MCMC,avg_df,ID_list):
     '''
@@ -236,10 +233,7 @@ def run(MCMC,avg_df,ID_list):
         this dataframe stor all the output of the MCMC run.
 
     '''
-    # global parallax_kde,Av_kde,Age_kde,mass_kde
-    # MCMC_sim_df=pd.DataFrame(columns=['ID','variables','truths','samples','blobs','blob_avg','good_mags','good_cols','tau','mags','emags','cols','ecols','mass','emass_u','emass_d','Av','eAv_u','eAv_d','A','eA_u','eA_d','Teff','eTeff','T','eT_u','eT_d','logL','elogL_u','elogL_d','logSPacc','elogSPacc_u','elogSPacc_d','logLacc','elogLacc_u','elogLacc_d','logMacc','elogMacc_u','elogMacc_d','Parallax','eParallax_d','eParallax_u','d','ed_u','ed_d'])
-    # MCMC_sim_df['ID']=ID_list
-    
+
     parallax_kde=MCMC.parallax_KDE
     Av_kde=MCMC.Av_KDE
     Age_kde=MCMC.Age_KDE
@@ -255,48 +249,43 @@ def run(MCMC,avg_df,ID_list):
         print('> workers %i,chunksize %i,ntarget %i'%(MCMC.workers,chunksize,ntarget))
         with concurrent.futures.ProcessPoolExecutor(max_workers=MCMC.workers) as executor:#,mp_context=mp.get_context('fork')) as executor:
             for tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax in tqdm(executor.map(aggregated_tasks,repeat(MCMC),ID_list,repeat(avg_df),repeat(parallax_kde),repeat(Av_kde),repeat(Age_kde),repeat(mass_kde),chunksize=chunksize)):
-                # MCMC_sim_df=update_dataframe(MCMC,ID,MCMC_sim_df,sampler,tau,variable_label_list,mag_good_list,color_good_list,mag_list,emag_list,color_list,ecolor_list,mu_T,sig_T,mu_Parallax,sig_Parallax)
                 save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
     else:
         for ID in ID_list:
             tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
-            # MCMC_sim_df=update_dataframe(MCMC,ID,MCMC_sim_df,sampler,tau,variable_label_list,mag_good_list,color_good_list,mag_list,emag_list,color_list,ecolor_list,mu_T,sig_T,mu_Parallax,sig_Parallax)
             save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
-    # return(MCMC_sim_df)
 
 
 #############
 # MCMC task #
 #############
 def aggregated_tasks(MCMC,ID,avg_df,parallax_kde_in,Av_kde_in,Age_kde_in,mass_kde_in):
-    # try:
-    global mu_T,sig_T,mu_logLacc,sig_logLacc,mu_Parallax,sig_Parallax,parallax_kde,Av_kde,Age_kde,mass_kde
+    global mu_T,sig_T,mu_Parallax,sig_Parallax,parallax_kde,Av_kde,Age_kde,mass_kde
     parallax_kde=parallax_kde_in
     Av_kde=Av_kde_in
     Age_kde=Age_kde_in
     mass_kde=mass_kde_in
     
-    
-    if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.WCaII_label].values[0]):
-        if avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.WCaII_label].values[0]>0:
-            if MCMC.show_test: print('> WCaII > 0. Dropping ...')
-            if 'm656' in MCMC.mag_label_list: 
-                if MCMC.show_test: print('> ... m656')
-                
-                index1 = np.argwhere(MCMC.mag_label_list=='m656')
-                MCMC.mag_label_list=np.delete(MCMC.mag_label_list,index1)
-                MCMC.emag_label_list=np.delete(MCMC.emag_label_list,index1)
+    if MCMC.WCaII_label in avg_df.columns:
+        if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.WCaII_label].values[0]):
+            if avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.WCaII_label].values[0]>0:
+                if MCMC.show_test: print('> WCaII > 0. Dropping ...')
+                if 'm656' in MCMC.mag_label_list:
+                    if MCMC.show_test: print('> ... m656')
 
-            if 'm658' in MCMC.mag_label_list: 
-                if MCMC.show_test: print('> ... m658')
-                index1 = np.argwhere(MCMC.mag_label_list=='m658')                
-                MCMC.mag_label_list=np.delete(MCMC.mag_label_list,index1)
-                MCMC.emag_label_list=np.delete(MCMC.emag_label_list,index1)
+                    index1 = np.argwhere(MCMC.mag_label_list=='m656')
+                    MCMC.mag_label_list=np.delete(MCMC.mag_label_list,index1)
+                    MCMC.emag_label_list=np.delete(MCMC.emag_label_list,index1)
+
+                if 'm658' in MCMC.mag_label_list:
+                    if MCMC.show_test: print('> ... m658')
+                    index1 = np.argwhere(MCMC.mag_label_list=='m658')
+                    MCMC.mag_label_list=np.delete(MCMC.mag_label_list,index1)
+                    MCMC.emag_label_list=np.delete(MCMC.emag_label_list,index1)
     
-    mag_list,emag_list,mu_T,sig_T,mu_logLacc,sig_logLacc,mu_Parallax,sig_Parallax=pre_task(MCMC,avg_df,ID)
+    mag_list,emag_list,mu_T,sig_T,mu_Parallax,sig_Parallax=pre_task(MCMC,avg_df,ID)
     tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list=task(MCMC,ID,mag_list,emag_list,avg_df)
-    # except: raise ValueError('Problem with ID: %i. Aborting the run.'%ID)
-    return(tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax)       
+    return(tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax)
 
 def pre_task(MCMC,avg_df,ID):
     if MCMC.simulation: 
@@ -307,20 +296,30 @@ def pre_task(MCMC,avg_df,ID):
         sig_Parallax=MCMC.eparallax
 
     else:
-        if MCMC.Teff_label in avg_df.columns: mu_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Teff_label].values[0]
-        else:mu_T=np.nan
-        if MCMC.eTeff_label in avg_df.columns: sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]
-        else:sig_T=np.nan
+        if MCMC.Teff_label in avg_df.columns:
+            mu_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Teff_label].values[0]
+        else:
+            mu_T=np.nan
+        if MCMC.eTeff_label in avg_df.columns:
+            if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]):
+                sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]
+            else:
+                sig_T = MCMC.sigma_T
+        else:
+            sig_T = MCMC.sigma_T
 
-        if MCMC.logLacc_label in avg_df.columns: mu_logLacc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.logLacc_label].values[0]
-        else:mu_logLacc=np.nan
-        if MCMC.elogLacc_label in avg_df.columns: sig_logLacc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.elogLacc_label].values[0]
-        else:sig_logLacc=np.nan
-        
-        if MCMC.parallax_label in avg_df.columns:  mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_label].values[0]
-        else:mu_Parallax=np.nan
-        if MCMC.eparallax_label in avg_df.columns: sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
-        else:sig_Parallax=np.nan
+        if MCMC.parallax_label in avg_df.columns:
+            mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_label].values[0]
+        else:
+            mu_Parallax=np.nan
+
+        if MCMC.eparallax_label in avg_df.columns:
+            if MCMC.eparallax_label in avg_df.columns:
+                sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
+            else:
+                sig_Parallax=MCMC.sigma_Parallax
+        else:
+            sig_Parallax = MCMC.sigma_Parallax
 
     if MCMC.simulation: 
         mag_list=[]
@@ -328,10 +327,10 @@ def pre_task(MCMC,avg_df,ID):
     else: 
         mag_list=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.mag_label_list].values[0]
         emag_list=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.emag_label_list].values[0]
-    return(mag_list,emag_list,mu_T,sig_T,mu_logLacc,sig_logLacc,mu_Parallax,sig_Parallax)
+    return(mag_list,emag_list,mu_T,sig_T,mu_Parallax,sig_Parallax)
 
-def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15,var16,var17,var18,var19,var20,var21,var22,var23,var24,var25,var26,var27,var28):
-    global data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,mu_logLacc,sig_logLacc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict
+def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15,var16,var17,var18,var19,var20,var21,var22,var23,var24,var25,var26):
+    global data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict
     data_mag = var1
     data_color = var2
     logMass_min=var3
@@ -349,17 +348,15 @@ def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var
     sig_Parallax=var15
     mu_T=var16
     sig_T=var17
-    mu_logLacc=var18
-    sig_logLacc=var19
-    interp=var20
-    mag_good_label_list=var21
-    color_good_label_list=var22
-    my_normal_mags=var23
-    parallax_kde=var24
-    Av_kde=var25
-    Age_kde=var26
-    mass_kde=var27
-    AV_dict=var28
+    interp=var18
+    mag_good_label_list=var19
+    color_good_label_list=var20
+    my_normal_mags=var21
+    parallax_kde=var22
+    Av_kde=var23
+    Age_kde=var24
+    mass_kde=var25
+    AV_dict=var26
     
 def task(MCMC,ID,mag_list,emag_list,avg_df):
     global my_normal_mags,my_normal_colors,AV_dict,interp,data_mag,data_color,mag_good_label_list,color_good_label_list,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs
@@ -373,9 +370,6 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
     else:
         if mu_Parallax-sig_Parallax*3 >0.002: xParallax_min,xParallax_max=[mu_Parallax-sig_Parallax*3,mu_Parallax+sig_Parallax*3]
         else:xParallax_min,xParallax_max=[0.002,mu_Parallax+mu_Parallax+sig_Parallax*3]
-    # show_priors.skewnormal_prior(mu_Parallax,sig_Parallax,xlabel='Dist')
-    # print(xParallax_min,xParallax_max)
-    # sys.exit()
 
     blobs=MCMC.blobs
     AV_dict=MCMC.AV_dict
@@ -415,10 +409,10 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
                     names=('col_label',  'color', 'ecolor', 'selected','Av1'))
             table.pprint()
     
-    if MCMC.blobs==True: MCMC.dtype = [("%s"%i,np.float) for i in variable_label_list]
+    if MCMC.blobs==True: MCMC.dtype = [("%s"%i,np.float64) for i in variable_label_list]
     else: MCMC.dtype=None
     if MCMC.show_test:
-        print('> Magnitude b fit')
+        print('> Magnitude to fit')
         print(variable_label_list)
 
     moves=[(emcee.moves.DEMove(), 0.7), (emcee.moves.DESnookerMove(), 0.3),]
@@ -428,7 +422,7 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
         else: my_normal_colors=None
         try:
             if not np.isnan(mu_Parallax): pos = np.array([np.array([np.random.uniform(logMass_min,logMass_max),np.random.uniform(MCMC.logAv_min,MCMC.logAv_max),np.random.uniform(MCMC.logAge_min,MCMC.logAge_max),np.random.uniform(MCMC.logSPacc_min,MCMC.logSPacc_max),np.random.uniform(xParallax_min,xParallax_max)]) for i in range(MCMC.nwalkers)])        
-            else: pos = np.array([np.array([np.random.uniform(logMass_min,logMass_max),np.random.uniform(MCMC.logAv_min,MCMC.logAv_max),np.random.uniform(MCMC.logAge_min,MCMC.logAge_max),np.random.uniform(MCMC.logSPacc_min,MCMC.logSPacc_max),np.random.uniform(xParallax_min,xParallax_max)]) for i in range(MCMC.nwalkers)])        
+            else: pos = np.array([np.array([np.random.uniform(logMass_min,logMass_max),np.random.uniform(MCMC.logAv_min,MCMC.logAv_max),np.random.uniform(MCMC.logAge_min,MCMC.logAge_max),np.random.uniform(MCMC.logSPacc_min,MCMC.logSPacc_max),np.random.uniform(xParallax_min,xParallax_max)]) for i in range(MCMC.nwalkers)])
         except:
             print('problems with ID: ',ID)
             return(np.nan,[],variable_label_list,variable_list,mag_list,emag_list,[False],[False],[False],[False])
@@ -442,7 +436,7 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
             
         
         if MCMC.parallelize_sampler:
-            with Pool(initializer=init_pool, initargs=(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,mu_logLacc,sig_logLacc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)) as pool:
+            with Pool(initializer=init_pool, initargs=(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)) as pool:
               if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype, pool=pool, moves=moves, backend=backend)
               else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,pool=pool,moves=moves, backend=backend)
               sampler,autocorr,converged,burnin,thin=sampler_convergence(MCMC,sampler,pos)
@@ -468,7 +462,6 @@ def sampler_convergence(MCMC,sampler,pos):
     for sample in sampler.sample(pos, iterations=MCMC.niters*3, progress=MCMC.progress):
     # Only check convergence every check_acor steps
         if converged == False:
-            # print('VVVVVVVVVVVVVVVVVVVVVV')
             if sampler.iteration % MCMC.check_acor:
                 continue
 
@@ -481,9 +474,8 @@ def sampler_convergence(MCMC,sampler,pos):
             burnin = np.int_(sampler.iteration/2)
             index += 1
 
-            # print(index,int(MCMC.niters),index>int(MCMC.niters),converged)
-        # Check convergence
-            converged = np.all(tau * MCMC.Fconv < sampler.iteration)
+            # Check convergence
+            converged = np.all(tau * MCMC.Fconv <= sampler.iteration)
             converged &= np.all( (np.abs(old_tau - tau) / tau) < MCMC.conv_thr)
             if converged:
 
@@ -512,9 +504,8 @@ def sampler_convergence(MCMC,sampler,pos):
 
                     
 def save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin):
-    # n=10
     if MCMC.parallelize_sampler: print('> tau: ',tau)
-    if (any(mag_good_list) or any(color_good_list)) and not (all(np.isnan(tau))):
+    if ((any(mag_good_list) or any(color_good_list))) and not (all(np.isnan(tau))):
         if converged and ( (sampler.iteration+1) >= MCMC.niters):
             converged = False
             burnin = np.int_(sampler.iteration/2)
@@ -552,6 +543,8 @@ def save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label
                  
         with bz2.BZ2File(MCMC.path2savedir+'/samplerID_%s'%ID, 'w') as f:
             pickle.dump(dict_to_save, f)
+    else:
+        raise Warning(f'ID {ID} di NOT converged.')
         
 ##################################
 # Probability functions          #
@@ -575,8 +568,7 @@ def log_prior(params):
         lp_parallax=0
         lp_mass=0
         lp_A=0
-        lp_logLacc=0
-        if not np.isnan(mu_Parallax): 
+        if not np.isnan(mu_Parallax):
             lp_parallax = np.log(skewnorm.pdf(xParallax_x,a=0,loc=mu_Parallax, scale=sig_Parallax))
         else:
             if parallax_kde!=None: lp_parallax=np.log(parallax_kde.pdf(xParallax_x))
@@ -584,9 +576,8 @@ def log_prior(params):
             if Age_kde!=None: lp_A=np.log(Age_kde.pdf(logAge_x))
             if mass_kde!=None: lp_mass=np.log(mass_kde.pdf(logMass_x))
         if not np.isnan(mu_T): lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
-        # if not np.isnan(mu_logLacc): lp_logLacc=np.log(skewnorm.pdf(interp['logLacc'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_logLacc,scale=sig_logLacc))
-        
-        return(lp_mass+lp_parallax+lp_Av+lp_A+lp_logLacc)
+
+        return(lp_mass+lp_parallax+lp_Av+lp_A)
     return(-np.inf)
 
 def log_probability(params):
