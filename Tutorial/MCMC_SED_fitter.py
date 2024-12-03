@@ -152,21 +152,28 @@ def assembling_priors(path2data,showplot=False):
     return(parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0)
 
 if __name__ == '__main__':
-    # Importing Catalog
+    ################################################################################################################
+    # Importing Catalog                                                                                            #
+    ################################################################################################################
     ONC_combined_df = pd.read_csv(path2data + '/ONC_catalogue.csv')
 
-    # Setting the stage for the MCMC run
+    ################################################################################################################
+    # Setting the stage for the MCMC run                                                                           #
+    ################################################################################################################
     ID_label = 'avg_ids'
+    # Selecting the filters and saturation limits and magnitudes to work with from the catalog
     filter_list = ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W',
                    'F130N', 'F139M']
     sat_list = ['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
     mag_label_list = ['m'+i[1:4] for i in filter_list]
 
-    #Interpolating Isochrones
+    #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
     interp_btsettl = interpolating_isochrones(path2data,mag_label_list)
-    # Creating dictionary
+    # Creating a filter dependent dictionary for the extinction, saturation and bandpass
     Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list)
-    # Loading priors
+    # Loading known priors (you can use NONE later one if you miss some or want to skip them)
+    # Default:  1) if you have the parallax, it will skipp them.
+    #           2) If you have the Teff, it will skip the prior on the mass. The prior on the temperature will also be used in case the Parallax is present.
     parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0 = assembling_priors(path2data)
 
     ################################################################################################################
@@ -200,7 +207,7 @@ if __name__ == '__main__':
               Av_KDE=Av_KDE0,
               Age_KDE=Age_KDE0,
               mass_KDE=mass_KDE0,
-              savedir=path2data+'/MCMC_analysis/samplers')
+              savedir=path2data+'/MCMC_analysis/samplers') # ----> This setup the MCMC. There are many options hidden in there!
 
     run(mcmc, ONC_combined_df, ID_list) # ---> This will run the MCMC and save the sampler
 
@@ -211,19 +218,27 @@ if __name__ == '__main__':
     # skipping entirely this section.                                                                              #
     ################################################################################################################
 
-    # Sampling posteriors
+    # Loading the posterior distributions saved in the sampler
     file_list=[]
     for ID in tqdm(ID_list):
         file_list.append(path2data + f"/MCMC_analysis/samplers/samplerID_{ID}")
 
+    ################################################################################################################
+    # I use these values to evaluate if the distance for my source is compatible with Orion                        #
+    ################################################################################################################
     pmean = 2.4957678361522033
     pM = 0.31352512471278526
     pm = 0.31352512471278526
+
+    # Sampling posteriors
     ONC_combined_df = mcmc_utils.update_dataframe(ONC_combined_df, file_list, interp_btsettl, kde_fit=True,
                                                   pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/MCMC_analysis/samplers',
                                                   path2savedir=path2data+'/MCMC_analysis/corners')
 
-    # Saving summary plot
+    ################################################################################################################
+    # Saving summary plot                                                                                          #
+    ################################################################################################################
+
     # Assembling Spectra dataframes for final plots
     spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2data)
     for ID in tqdm(ID_list):
