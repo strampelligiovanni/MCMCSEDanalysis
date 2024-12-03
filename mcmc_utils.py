@@ -6,10 +6,6 @@ Created on Wed Sep 22 15:36:26 2021
 @author: giovanni
 """
 import sys,os
-sys.path.append('./')
-sys.path.append('/mnt/Storage/Lavoro/GitHub/imf-master/imf/')
-# from config import path2data
-# from miscellaneus import chunks
 from kde import KDE
 import numpy as np
 
@@ -18,16 +14,20 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import random
 import bz2
-# import pickle
 from itertools import repeat
-# import multiprocessing as mp
 import _pickle as cPickle
 import concurrent.futures
 from IPython.display import display
 from numpy import trapz
 from astropy.stats import sigma_clip
-# from mcmc_plots import *
 from mcmc_plots import sample_posteriors
+from synphot.units import FLAM
+from dust_extinction.parameter_averages import CCM89
+from synphot.reddening import ExtinctionCurve
+from astropy import units as u
+from synphot import ExtinctionModel1D,Observation,SourceSpectrum,SpectralElement,Empirical1D
+from astropy.time import Time
+import stsynphot as stsyn
 
 class HiddenPrints:
     def __enter__(self):
