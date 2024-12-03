@@ -12,11 +12,8 @@ sys.path.append(path2projects)
 sys.path.append(path2projects+'/imf-master/imf')
 from imf import coolplot
 sys.path.append('./')
-# from config import path2data
 import numpy as np
 import matplotlib.pyplot as plt
-# from plotly.subplots import make_subplots
-# from scipy.interpolate import LinearNDInterpolator,Rbf
 import mcmc_utils
 from IPython.display import display, Math
 from astropy import units as u
@@ -130,8 +127,9 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
             axes[-1].set_xlabel("step number")
             plt.tight_layout()
             plt.show()
-    
-        figure = corner.corner(flat_samples,truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=None,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD',label_kwargs={'fontsize':22},title_kwargs={'fontsize':22})
+
+        fig=plt.figure(figsize=(13, 13))
+        figure = corner.corner(flat_samples,truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=fig,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD')#,label_kwargs={'fontsize':20},title_kwargs={'fontsize':20})
         if showID: figure.suptitle('Star ID %i'%ID)
         axes = np.array(figure.axes).reshape((ndim, ndim))
         for i in range(ndim):
@@ -238,10 +236,7 @@ def sample_blobs(ID,mag_label_list,path2loaddir=None,color_label_list=[],showID=
         ax.set_title(txt,size=18,fontweight="bold")
         ax.axvline(val-eval_d, color="k",linestyle='-.')
         ax.axvline(val, color="b",linestyle='-.',lw=2)    
-        ax.axvline(eval_u+val, color="k",linestyle='-.')  
-
-    
-    
+        ax.axvline(eval_u+val, color="k",linestyle='-.')
     plt.tight_layout()
     plt.show()
     
