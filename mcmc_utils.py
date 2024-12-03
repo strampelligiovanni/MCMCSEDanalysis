@@ -554,33 +554,216 @@ def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,i
 # Ancillary #
 #############
 
-# def round_up(n, decimals=0):
-#     multiplier = 10 ** decimals
-#     return math.ceil(n * multiplier) / multiplier
+def plot_ND(args, plotND=True, xerror=None, yerror=None, zerror=None, x_label='x', y_label='y', z_label='z',
+            name_label='var', elno=0, fig=None, color='k', pad=1, w_pad=1, h_pad=1, fx=1000, fy=750, size=3, width=1,
+            row=1, col=1, showplot=False, subplot_titles=['Plot1'], marker_color='black', aspectmode='cube'):
+    if showplot:
+        if plotND:
+            fig = make_subplots(
+                rows=1, cols=1,
+                specs=[[{"type": "scatter3d"}]],
+                subplot_titles=subplot_titles)
+        else:
+            fig = make_subplots(
+                rows=1, cols=1,
+                subplot_titles=subplot_titles)
 
-# def get_kde_pdf(x_sort,bw_method,kernel='linear',auto_adjust=True):
-#     xlinspace=np.linspace(min(x_sort),max(x_sort),1000)
-    
-#     kde=KDE(x_sort, xlinspace, bandwidth=bw_method,kernel=kernel)
-    
-#     # my_pdf = gaussian_kde(x_sort,bw_method=bw_method)
-#     # my_pdf=kde_sklearn(x_sort, xlinspace, bandwidth=bw_method,kernel=kernel)
-#     # if auto_adjust:
-#     #     grid = GridSearchCV(KernelDensity(),
-#     #                 {'bandwidth': np.linspace(0.01, 10, 1000)},
-#     #                 cv=20,n_jobs=10) # 20-fold cross-validation
-#     #     grid.fit(x_sort[:, None])
-#     return(kde)
-        # pdf_max=np.max(my_pdf(xlinspace))
-        # w=np.where(my_pdf(xlinspace)==pdf_max)
-        # val=np.round(np.nanmedian(xlinspace[w]),2)
-        # spline = UnivariateSpline(xlinspace, my_pdf(xlinspace)-np.nanmax(my_pdf(xlinspace))/2, s=0)
-        # r1= spline.roots()[0] 
-        # r2= spline.roots()[-1]  # find the roots
-        # if r2<val: r2=np.nanmax(xlinspace)
-        # if r1>val: r1=np.nanmin(xlinspace)
-        # bw_method2=round((abs(r2-r1)/abs(max(xlinspace)-min(xlinspace)))/2,2)
-        # if bw_method2<=0.1: bw_method2=0.1
-        # my_new_pdf = gaussian_kde(x_sort,bw_method=bw_method2)
-        # return(my_new_pdf,r1,r2)
-    # else: return(my_pdf,np.nan,np.nan)
+    error_x = dict(type='data', array=xerror, visible=True)
+    error_y = dict(type='data', array=yerror, visible=True)
+    error_z = dict(type='data', array=zerror, visible=True)
+    if plotND:
+        fig.add_trace(go.Scatter3d(args, error_x=error_x, error_y=error_y, error_z=error_z,
+                                   mode='markers',
+                                   marker=dict(size=size, line=dict(width=width),
+                                               color=marker_color),
+                                   name=name_label),
+                      row=row, col=col)
+        fig.update_layout(autosize=False, width=fx, height=fy, margin=dict(l=10, r=10, b=10, t=22, pad=4),
+                          paper_bgcolor="LightSteelBlue")
+        fig.update_scenes(xaxis=dict(title_text=x_label), yaxis=dict(title_text=y_label),
+                          zaxis=dict(title_text=z_label), row=row, col=col, aspectmode=aspectmode)
+    else:
+        fig.add_trace(go.Scatter(args, error_x=error_x, error_y=error_y,
+                                 mode='markers',
+                                 marker=dict(size=size * 3, line=dict(width=width),
+                                             color=marker_color),
+                                 name=name_label),
+                      row=row, col=col)
+        fig.update_layout(autosize=False, width=fx, height=fy, margin=dict(l=10, r=10, b=10, t=22, pad=4),
+                          paper_bgcolor="LightSteelBlue")
+        # fig.update_scenes(xaxis=dict(title_text=x_label),yaxis=dict(title_text=y_label),row=row,col=col)
+        fig.update_xaxes(title_text=x_label, row=row, col=col)
+        fig.update_yaxes(title_text=y_label, row=row, col=col)
+
+    if showplot:
+        fig.show()
+    else:
+        return (fig)
+
+
+def interpND_task(elno, args, method, smooth):
+    args_reshaped = [args[0][i] for i in range(len(args[0][:-1]))]
+    if method == 'nearest':
+        node_list = args[0][-1]
+        args2interp = [list(zip(*args_reshaped)), node_list[elno]]
+        interpolation = LinearNDInterpolator(*args2interp)
+    else:
+        args_reshaped.append(args[0][-1][elno])
+        interpolation = Rbf(*args_reshaped, smooth=smooth, function=method)
+    return (interpolation, args_reshaped, elno)
+
+
+def interpND_plots(elno, args, args_reshaped, node_list, interpolations_list, interpolation, Dict, z_label, x_label,
+                   y_label, new_coords, color_labels, row=1, col=1, fig=None, fx=7, fy=7, ncols=1, showplot=False):
+    interpolations_list.append(interpolation)
+    Dict[z_label[elno]] = interpolation
+    if showplot:
+        if len(*args) - 1 == 3:
+            thisdict = {
+                "x": new_coords[0],
+                "y": new_coords[1],
+                "z": new_coords[2]}
+            # "z": interpolation(*new_coords)}
+            thisdict2 = {
+                "x": args_reshaped[0].ravel(),
+                "y": args_reshaped[1].ravel(),
+                "z": args_reshaped[2].ravel()}
+            # "z": node_list[elno].ravel()}
+            # marker_color1=new_coords[2]
+            # marker_color2=args_in[2].ravel()
+            marker_color1 = interpolation(*new_coords)
+            marker_color2 = node_list[elno].ravel()
+            z_label_ND = z_label[elno]
+            label_ND2 = z_label[elno] + '_o'
+            label_ND1 = z_label[elno] + '_i'
+            plotND = True
+        elif len(*args) - 1 == 2:
+            thisdict = {
+                "x": new_coords[0],
+                "y": new_coords[1],
+                "z": interpolation(*new_coords)}
+            thisdict2 = {
+                "x": args_reshaped[0].ravel(),
+                "y": args_reshaped[1].ravel(),
+                "z": node_list[elno].ravel()}
+
+            marker_color1 = 'lightskyblue'
+            marker_color2 = 'black'
+            z_label_ND = z_label[elno]
+            label_ND2 = z_label[elno] + '_o'
+            label_ND1 = z_label[elno] + '_i'
+            plotND = True
+        elif len(*args) - 1 == 1:
+            thisdict = {
+                "x": new_coords[0],
+                "y": interpolation(*new_coords)}
+            thisdict2 = {
+                "x": args_reshaped[0].ravel(),
+                "y": node_list[elno].ravel()}
+
+            marker_color1 = 'lightskyblue'
+            marker_color2 = 'black'
+            z_label_ND = []
+            y_label = z_label[elno]
+            label_ND2 = z_label[elno] + '_o'
+            label_ND1 = z_label[elno] + '_i'
+            plotND = False
+
+        fig = plot_ND(thisdict2, plotND=plotND, row=row, col=col, showplot=False, marker_color=marker_color2, fig=fig,
+                      name_label=label_ND2)
+        fig = plot_ND(thisdict, plotND=plotND, showplot=False, row=row, col=col, marker_color=marker_color1, fx=fx,
+                      fy=fy, fig=fig, x_label=x_label, y_label=y_label, z_label=z_label_ND, name_label=label_ND1)
+        col += 1
+        if col > ncols:
+            row += 1
+            col = 1
+    return (fig, Dict)
+
+
+def interpND(*args, smooth=0, method='nearest', x_label='x', y_label='y', z_label=None, color_labels=None,
+             showplot=False, radial=True, fx=1450, fy=1000, w_pad=3, h_pad=1, pad=3, npoints=50, nrows=1, surface=True,
+             workers=None, progress=True, horizontal_spacing=0.01, vertical_spacing=0.01):
+    '''Calculate 2d interpolation for the z axis along x and y variables.
+        Parameters:
+            args: x, y, z, where x, y, z, ... are the coordinates of the nodes
+            node_list: list of lists of values at the nodes to interpolate. The rotuine will perfom a different interpolation (using the same x and y) for each sublist of node_list.
+            x_range,y_range: range of x,y variables in the from [in,end] over which evaluate the interpolation. If not provide will automaticaly take min,max as ranges.
+            smooth: smoothnes parametr for Rbf routine
+            method:
+                if 'nearest' selected, then use LinearNDInterpolator to interpolate, otherwise use the Rbf routine where method parameters are:
+                'multiquadric': sqrt((r/self.epsilon)**2 + 1)
+                'inverse': 1.0/sqrt((r/self.epsilon)**2 + 1)
+                'gaussian': exp(-(r/self.epsilon)**2)
+                'linear': r
+                'cubic': r**3
+                'quintic': r**5
+                'thin_plate': r**2 * log(r)
+
+            x_labe,y_label: labels  for x,y axis
+            z_label: list of labels for the z axis
+            showplot: if true show plot for the interpolation
+            radial: use Rbf insead of interp2d
+        Returns:
+            interpolations_list: list of interpolatations functions to be called as new_z=interpolations_list(x0,y0)
+    '''
+    if workers == None:
+        ncpu = multiprocessing.cpu_count()
+        if ncpu >= 3:
+            workers = ncpu - 2
+        else:
+            workers = 1
+        print('> Selected Workers:', workers)
+
+    if np.all(z_label == None): z_label = ['z'] * len(args[0][-1])
+    if surface:
+        meshed_coords = np.meshgrid(
+            *[np.linspace(np.min(args[0][i]), np.max(args[0][i]), npoints) for i in range(len(args[0][:-1]))])
+        new_coords = [meshed_coords[i].ravel() for i in range(len(meshed_coords))]
+    else:
+        new_coords = np.array(
+            [np.linspace(np.min(args[0][i]), np.max(args[0][i]), npoints) for i in range(len(args[0][:-1]))])
+    node_list = args[0][-1]
+    if showplot:
+
+        ncols = int(round_up(len(node_list) / nrows))
+        if len(*args) - 1 != 1:
+            fig = make_subplots(rows=nrows, cols=ncols,
+                                specs=[[{"type": "surface"} for i in range(ncols)] for j in range(nrows)],
+                                horizontal_spacing=horizontal_spacing, vertical_spacing=vertical_spacing)
+        else:
+            fig = make_subplots(rows=nrows, cols=ncols,
+                                horizontal_spacing=horizontal_spacing, vertical_spacing=vertical_spacing)
+    else:
+        fig = None
+        ncols = 1
+    interpolations_list = []
+    elno_list = [i for i in range(len(node_list))]
+    row = 1
+    col = 1
+    Dict = {}
+
+    if progress:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+            for interpolation, args_reshaped, elno in tqdm(
+                    executor.map(interpND_task, elno_list, repeat(args), repeat(method), repeat(smooth))):
+                fig, Dict = interpND_plots(elno, args, args_reshaped, node_list, interpolations_list, interpolation,
+                                           Dict, z_label, x_label, y_label, new_coords, color_labels, row=row, col=col,
+                                           fig=fig, fx=fx, fy=fy, ncols=ncols, showplot=showplot)
+    else:
+        if workers == 0:
+            for elno in elno_list:
+                interpolation, args_reshaped, elno = interpND_task(elno, args, method, smooth)
+                fig, Dict = interpND_plots(elno, args, args_reshaped, node_list, interpolations_list, interpolation,
+                                           Dict, z_label, x_label, y_label, new_coords, color_labels, row=row,
+                                           col=elno + 1, fig=fig, fx=fx, fy=fy, ncols=ncols, showplot=showplot)
+        else:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+                for interpolation, args_reshaped, elno in executor.map(interpND_task, elno_list, repeat(args),
+                                                                       repeat(method), repeat(smooth)):
+                    fig, Dict = interpND_plots(elno, args, args_reshaped, node_list, interpolations_list, interpolation,
+                                               Dict, z_label, x_label, y_label, new_coords, color_labels, row=row,
+                                               col=col, fig=fig, fx=fx, fy=fy, ncols=ncols, showplot=showplot)
+
+    if showplot:
+        fig.show()
+    return (Dict)
