@@ -3,11 +3,12 @@ import warnings,sys,os
 warnings.filterwarnings('ignore')
 os.environ["OMP_NUM_THREADS"] = "1"
 
-sys.path.append('/Users/gstrampelli/PycharmProjects/Projects/MCMC_analysis')
+sys.path.append('./')
 from config import path2projects,path2data
-# sys.path.append(path2projects+'/StraKLIP/')
+sys.path.append(path2projects+'/MCMC_analysis')
 sys.path.append(path2projects+'/Synthetic_Photometry')
 
+import os
 from mcmc import MCMC,run
 import mcmc_utils,show_priors
 import numpy as np
@@ -153,6 +154,13 @@ def assembling_priors(path2data,showplot=False):
 
 if __name__ == '__main__':
     ################################################################################################################
+    # Making output dirs                                                                                            #
+    ################################################################################################################
+    os.makedirs(path2data+'/analysis/samplers', exist_ok=True)
+    os.makedirs(path2data+'/analysis/corners', exist_ok=True)
+    os.makedirs(path2data+'/analysis/fits', exist_ok=True)
+
+    ################################################################################################################
     # Importing Catalog                                                                                            #
     ################################################################################################################
     ONC_combined_df = pd.read_csv(path2data + '/ONC_catalogue.csv')
@@ -171,9 +179,9 @@ if __name__ == '__main__':
     interp_btsettl = interpolating_isochrones(path2data,mag_label_list)
     # Creating a filter dependent dictionary for the extinction, saturation and bandpass
     Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list)
-    # Loading known priors (you can use NONE later one if you miss some or want to skip them)
-    # Default:  1) if you have the parallax, it will skipp them.
-    #           2) If you have the Teff, it will skip the prior on the mass. The prior on the temperature will also be used in case the Parallax is present.
+    # Loading known priors (you can use NONE later on if you miss some or want to skip them)
+    # Default:  1) if you have the parallax, it will skipp all the other (Teff excluded if present).
+    #           2) If you have the Teff, it will skip the prior on the mass.
     parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0 = assembling_priors(path2data)
 
     ################################################################################################################
@@ -207,7 +215,7 @@ if __name__ == '__main__':
               Av_KDE=Av_KDE0,
               Age_KDE=Age_KDE0,
               mass_KDE=mass_KDE0,
-              savedir=path2data+'/MCMC_analysis/samplers') # ----> This setup the MCMC. There are many options hidden in there!
+              savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
     run(mcmc, ONC_combined_df, ID_list) # ---> This will run the MCMC and save the sampler
 
@@ -221,7 +229,7 @@ if __name__ == '__main__':
     # Loading the posterior distributions saved in the sampler
     file_list=[]
     for ID in tqdm(ID_list):
-        file_list.append(path2data + f"/MCMC_analysis/samplers/samplerID_{ID}")
+        file_list.append(path2data + f"/analysis/samplers/samplerID_{ID}")
 
     ################################################################################################################
     # I use these values to evaluate if the distance for my source is compatible with Orion                        #
@@ -232,8 +240,8 @@ if __name__ == '__main__':
 
     # Sampling posteriors
     ONC_combined_df = mcmc_utils.update_dataframe(ONC_combined_df, file_list, interp_btsettl, kde_fit=True,
-                                                  pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/MCMC_analysis/samplers',
-                                                  path2savedir=path2data+'/MCMC_analysis/corners')
+                                                  pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/analysis/samplers',
+                                                  path2savedir=path2data+'/analysis/corners', parallel_runs=False, verbose=True)
 
     ################################################################################################################
     # Saving summary plot                                                                                          #
@@ -242,7 +250,7 @@ if __name__ == '__main__':
     # Assembling Spectra dataframes for final plots
     spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2data)
     for ID in tqdm(ID_list):
-        file = path2data+'/MCMC_analysis/corners/cornerID%i.png' % int(ID)
+        file = path2data+'/analysis/corners/cornerID%i.png' % int(ID)
         img = mpimg.imread(file)
 
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
@@ -254,6 +262,6 @@ if __name__ == '__main__':
         ax[1].axis('off')
         fig.suptitle(int(ID))
         plt.tight_layout()
-        plt.savefig(path2data+'/MCMC_analysis/fits/ID%i.png' % int(ID))
+        plt.savefig(path2data+'/analysis/fits/ID%i.png' % int(ID))
         plt.show()
 
