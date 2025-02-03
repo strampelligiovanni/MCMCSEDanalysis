@@ -10,7 +10,7 @@ sys.path.append('./')
 from config import path2projects
 sys.path.append(path2projects)
 sys.path.append(path2projects+'/imf-master/imf')
-from imf import coolplot
+# from imf import coolplot
 sys.path.append('./')
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,23 +26,23 @@ sys.path.append(path2projects+'/Synthetic Photometry')
 # Ancillary #
 #############
 
-def show_cluster(massfunc,mcluster,showplot=False):
-
-    cluster,yax,colors = coolplot(mcluster, massfunc=massfunc)
-
-    logspace_mass = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
-    if showplot:
-        plt.figure(1, figsize=(10,8))
-        # plt.clf()
-        plt.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
-                    linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
-        plt.gca().set_xscale('log')
-        plt.plot(logspace_mass,np.log10(massfunc(logspace_mass)),'r--',linewidth=2,alpha=0.5)
-        plt.xlabel("Stellar Mass")
-        plt.ylabel("log(dN(M)/dM)")
-        plt.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
-        plt.show()
-    return(cluster,massfunc)
+# def show_cluster(massfunc,mcluster,showplot=False):
+#
+#     cluster,yax,colors = coolplot(mcluster, massfunc=massfunc)
+#
+#     logspace_mass = np.logspace(np.log10(cluster.min()), np.log10(cluster.max()),10000)
+#     if showplot:
+#         plt.figure(1, figsize=(10,8))
+#         # plt.clf()
+#         plt.scatter(cluster, yax, c=colors, s=np.log10(cluster+3)*85,
+#                     linewidths=0.5, edgecolors=(0,0,0,0.25), alpha=0.95)
+#         plt.gca().set_xscale('log')
+#         plt.plot(logspace_mass,np.log10(massfunc(logspace_mass)),'r--',linewidth=2,alpha=0.5)
+#         plt.xlabel("Stellar Mass")
+#         plt.ylabel("log(dN(M)/dM)")
+#         plt.gca().axis([min(cluster)/1.1,max(cluster)*1.1,min(yax)-0.2,max(yax)+0.5])
+#         plt.show()
+#     return(cluster,massfunc)
 
 def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples=False,show_SEDfit=False,truths=[None,None,None,None,None],bins=20,pranges=None,fx=4,fy=4,labelpad=10,path2backend=None,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30):
         if path2loaddir==None: path2loaddir=path2data+'/Giovanni/MCMC_analysis/samplers'
@@ -55,8 +55,8 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
         if discard!=None: samples=samples[discard:, :, :]
         if thin!=None: samples=samples[::thin, :, :]        
         flat_samples=samples.reshape(samples.shape[0]*samples.shape[1],samples.shape[2])
-        filtered_flat_sample=sigma_clip(flat_samples, sigma=sigma, maxiters=5,axis=0)
-        flat_samples=filtered_flat_sample.copy()
+        # filtered_flat_sample=sigma_clip(flat_samples, sigma=sigma, maxiters=5,axis=0)
+        # flat_samples=filtered_flat_sample.copy()
         if pranges==None: 
             pranges=[]
             for i in  range(flat_samples.shape[1]):
@@ -66,51 +66,51 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
         logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=mcmc_utils.star_properties(flat_samples,ndim,interp,label_list=label_list,kde_fit=kde_fit,pmin=pmin,pmax=pmax)
         if verbose:
             print('\nStar\'s principal parameters:')
-            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
             txt = txt.format(10**logMass, 10**logMass-10**(logMass-elogMass_d), 10**(logMass+elogMass_u)-10**logMass, 'mass')
             display(Math(txt))
         
-            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
             txt = txt.format(10**logAv, 10**logAv-10**(logAv-elogAv_d), 10**(logAv+elogAv_u)-10**logAv, 'Av')
             display(Math(txt))
         
-            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
             txt = txt.format(10**logAge, 10**logAge-10**(logAge-elogAge_d), 10**(logAge+elogAge_u)-10**logAge, 'A')
             display(Math(txt))
         
-            txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
             txt = txt.format(logSPacc, elogSPacc_d, elogSPacc_u, r"logSPacc")
             display(Math(txt))
         
-            txt = "\mathrm{{{3}}} = {0:.5f}_{{-{1:.5f}}}^{{{2:.5f}}}"
+            txt = r"\mathrm{{{3}}} = {0:.5f}_{{-{1:.5f}}}^{{{2:.5f}}}"
             txt = txt.format(Parallax, eParallax_d, eParallax_u, 'Parallax')
             display(Math(txt))
         
-            txt = "\mathrm{{{1}}} = {0:.5f}"
+            txt = r"\mathrm{{{1}}} = {0:.5f}"
             txt = txt.format(area_r, 'Area Ratio')
             display(Math(txt))
     
         if verbose:print('\nStar\'s derived parameters:')
-        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
         Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_d=Dist-((Parallax+eParallax_u)*u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_u=((Parallax-eParallax_d)*u.mas).to(u.parsec, equivalencies=u.parallax()).value-Dist
         txt = txt.format(Dist, eDist_d, eDist_u, 'Distance')
         if verbose:display(Math(txt))
     
-        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
         txt = txt.format(T, eT_d, eT_u, 'T')
         if verbose:display(Math(txt))
     
-        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
         txt = txt.format(logL, elogL_d, elogL_u, 'logL')
         if verbose:display(Math(txt))        
         
-        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
         txt = txt.format(logLacc, elogLacc_d, elogLacc_u, r"logL_{acc}")
         if verbose:display(Math(txt))
         
-        txt = "\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+        txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
         txt = txt.format(logMacc, elogMacc_d, elogMacc_u, r"logM_{acc}")
         if verbose:display(Math(txt))
     
@@ -162,7 +162,8 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
             ax.axvline(val, color="b",linestyle='-.',lw=2)    
             ax.axvline(eval_u+val, color="k",linestyle='-.')  
             if len(kde_list)>0:
-                x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+                # x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+                x=np.sort(flat_samples[:,i])
                 y=kde_list[i].pdf(np.sort(x))
                 ax.plot(x,y, color='k',lw=2)
         

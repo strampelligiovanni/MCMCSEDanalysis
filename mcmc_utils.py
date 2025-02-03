@@ -237,7 +237,8 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
     q_u_list=[]
     kde_list=[]
     for i in range(ndim):
-        x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+        # x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+        x=np.sort(flat_samples[:,i])
         mcmc = np.percentile(x, [16, 50, 84])
         if kde_fit:
             xlinspace = np.linspace(np.nanmin(x), np.nanmax(x), 1000)
