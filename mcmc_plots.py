@@ -55,8 +55,8 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
         if discard!=None: samples=samples[discard:, :, :]
         if thin!=None: samples=samples[::thin, :, :]        
         flat_samples=samples.reshape(samples.shape[0]*samples.shape[1],samples.shape[2])
-        # filtered_flat_sample=sigma_clip(flat_samples, sigma=sigma, maxiters=5,axis=0)
-        # flat_samples=filtered_flat_sample.copy()
+        filtered_flat_sample=sigma_clip(flat_samples, sigma=sigma, maxiters=5,axis=0)
+        flat_samples=filtered_flat_sample.copy()
         if pranges==None: 
             pranges=[]
             for i in  range(flat_samples.shape[1]):
@@ -162,8 +162,8 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
             ax.axvline(val, color="b",linestyle='-.',lw=2)    
             ax.axvline(eval_u+val, color="k",linestyle='-.')  
             if len(kde_list)>0:
-                # x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
-                x=np.sort(flat_samples[:,i])
+                x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
+                # x=np.sort(flat_samples[:,i])
                 y=kde_list[i].pdf(np.sort(x))
                 ax.plot(x,y, color='k',lw=2)
         
