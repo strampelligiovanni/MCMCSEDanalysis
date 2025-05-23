@@ -2,16 +2,11 @@
 import warnings,sys,os
 warnings.filterwarnings('ignore')
 os.environ["OMP_NUM_THREADS"] = "1"
-
-sys.path.append('./')
-from config import path2projects,path2data
-sys.path.append(path2projects+'/MCMC_analysis')
-sys.path.append(path2projects+'/Synthetic_Photometry')
-
 import os
 from mcmc import MCMC,run
 import mcmc_utils,show_priors
 import numpy as np
+import argparse
 
 import pandas as pd
 from tqdm import tqdm
@@ -25,8 +20,26 @@ from itertools import repeat
 from astropy.time import Time
 import stsynphot as stsyn
 import pickle
+import ruamel.yaml
+yaml = ruamel.yaml.YAML()
 
 pd.set_option('display.max_columns', 500)
+def parse():
+    # read in command line arguments
+    parser = argparse.ArgumentParser(description='MCMC SED fit')
+    parser.add_argument('-p', type=str, help='A pipeline config file', default='pipe.yaml', dest='pipe_cfg')
+    parser.add_argument('--verbose', action='store_true', help='Verbose')
+    parser.add_argument('--make-dir', dest='make_paths', help='Create all needed directories', action='store_true')
+    return parser.parse_args()
+
+def load(file):
+    if not isinstance(file, str):
+        return file
+
+    if file.lower().endswith(('yaml', 'yml')):
+        with open(file, 'r') as f:
+            ret = yaml.load(f)
+        return ret
 
 def assembling_spectra_dataframes(path2data,acc_spec_filename = 'accretion_spectrum_2016.fits'):
     ### Accr Spectrum
@@ -71,10 +84,10 @@ def assembling_spectra_dataframes(path2data,acc_spec_filename = 'accretion_spect
     # vega_spectrum.plot(left=2000, right=20000, flux_unit='flam', title=vega_spectrum.meta['expr'])
     return(spAcc,spectrum_with_acc_df,spectrum_without_acc_df,vega_spectrum)
 
-def interpolating_isochrones(path2data, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
+def interpolating_isochrones(path2synphotometry, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
     if redo:
         ## Isochrones ((skip if already saved))
-        iso_df=pd.read_hdf(path2data+"/Synthetic Photometry/bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
+        iso_df=pd.read_hdf(path2synphotometry+"bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
         iso_df=iso_df.loc[np.isfinite(iso_df.logLacc.values)]
 
         node_label_list= list(mag_label_list)+['teff','logL','logg','logLacc','logMacc','R']
@@ -85,11 +98,11 @@ def interpolating_isochrones(path2data, mag_label_list, redo=False, smooth=0.001
 
         interp_btsettl=mcmc_utils.interpND([x,y,z,node_list],method=method,showplot=showplot,smooth=smooth,z_label=node_label_list,workers=5)
 
-        with open(path2data+"/Giovanni/Synthetic Photometry/interpolated_isochrones.pck", 'wb') as file_handle:
+        with open(path2synphotometry+"interpolated_isochrones.pck", 'wb') as file_handle:
             pickle.dump(interp_btsettl , file_handle)
     else:
         ## Load interpolated isochrones
-        with open(path2data + "/Synthetic Photometry/interpolated_isochrones.pck", 'rb') as file_handle:
+        with open(path2synphotometry + "interpolated_isochrones.pck", 'rb') as file_handle:
             interp_btsettl = pickle.load(file_handle)
     return (interp_btsettl)
 
@@ -153,30 +166,36 @@ def assembling_priors(path2data,showplot=False):
     return(parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0)
 
 if __name__ == '__main__':
-    ################################################################################################################
-    # Making output dirs                                                                                            #
-    ################################################################################################################
-    os.makedirs(path2data+'/analysis/samplers', exist_ok=True)
-    os.makedirs(path2data+'/analysis/corners', exist_ok=True)
-    os.makedirs(path2data+'/analysis/fits', exist_ok=True)
+    args = parse()
+    config = load(args.pipe_cfg)
+    path2data = config['paths']['data']
+    path2synphotometry = config['paths']['synphotometry']
+    catalogue = config['catalogue']
+
+    if args.make_paths:
+        ################################################################################################################
+        # Making output dirs                                                                                            #
+        ################################################################################################################
+        os.makedirs(path2data+'/analysis/samplers', exist_ok=True)
+        os.makedirs(path2data+'/analysis/corners', exist_ok=True)
+        os.makedirs(path2data+'/analysis/fits', exist_ok=True)
 
     ################################################################################################################
     # Importing Catalog                                                                                            #
     ################################################################################################################
-    ONC_combined_df = pd.read_csv(path2data + '/ONC_catalogue.csv')
+    ONC_combined_df = pd.read_csv(path2data + catalogue)
 
     ################################################################################################################
     # Setting the stage for the MCMC run                                                                           #
     ################################################################################################################
-    ID_label = 'avg_ids'
+    ID_label = config['ID_list'] #'avg_ids'
     # Selecting the filters and saturation limits and magnitudes to work with from the catalog
-    filter_list = ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W',
-                   'F130N', 'F139M']
-    sat_list = ['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
+    filter_list = config['filter_list'] # ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W',, 'F139M']
+    sat_list = config['sat_list'] #['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
     mag_label_list = ['m'+i[1:4] for i in filter_list]
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
-    interp_btsettl = interpolating_isochrones(path2data,mag_label_list)
+    interp_btsettl = interpolating_isochrones(path2synphotometry,mag_label_list)
     # Creating a filter dependent dictionary for the extinction, saturation and bandpass
     Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list)
     # Loading known priors (you can use NONE later on if you miss some or want to skip them)
@@ -188,7 +207,7 @@ if __name__ == '__main__':
     # This is the start of the MCMC run                                                                            #
     ################################################################################################################
 
-    ID_list = [8] #[8,35,77,209]
+    ID_list = config['ID_list'] #[8] #[8,35,77,209]
     print(ONC_combined_df.loc[ONC_combined_df.avg_ids.isin(ID_list)])
 
     mcmc=MCMC(interp_btsettl,
@@ -215,6 +234,7 @@ if __name__ == '__main__':
               Av_KDE=Av_KDE0,
               Age_KDE=Age_KDE0,
               mass_KDE=mass_KDE0,
+              path2data=path2data,
               savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
     run(mcmc, ONC_combined_df, ID_list) # ---> This will run the MCMC and save the sampler
