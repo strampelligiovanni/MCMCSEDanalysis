@@ -1,10 +1,30 @@
 paths:
   data: /Users/gstrampelli/MCMC_analysis/Tutorial/
-  synphotometry: /Users/gstrampelli/Synthetic_Photometry/
-catalogue: ONC_catalogue.csv
-ID_label : 'avg_ids'
+  iso: /Users/gstrampelli/MCMC_analysis/Tutorial/Synthetic Photometry/
+catalogue:
+  name: ONC_catalogue.csv
 ID_list : [8] #[8,35,77,209]
+Rv: 3.1
 # Selecting the filters and saturation limits and magnitudes to work with from the catalog
-filter_list : ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W',
-               'F130N', 'F139M']
+filter_list : ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W','F130N', 'F139M']
 sat_list : ['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
+MCMC:
+  pmean : 2.4957678361522033
+  pM : 0.31352512471278526
+  pm : 0.31352512471278526
+  workers: 5
+  sigma_T: 150
+  conv_thr: 0.01
+  ndesired: 2000
+  err_max: 0.1
+  err_min: 0.01
+  logMass_range: [-2, 1]
+  logAge_range: [0, 4]
+  logSPacc_range: [-5, 1]
+  logAv_range: [-1, 2]
+  parallax_range: [0.02, 6]
+  nwalkers_ndim_niters: [100, 5, 20000]
+  parallelize_sampler: True
+  show_test: True
+  progress: True
+  blobs: True
