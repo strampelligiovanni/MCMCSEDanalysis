@@ -10,34 +10,26 @@ import sys,emcee,os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 sys.path.append('./')
-from config import path2data
-import mcmc_utils#,show_priors
-# from priors import normal_dist
+import mcmc_utils
 import numpy as np
 from astropy.table import QTable
 from multiprocessing import Pool
-# import pandas as pd
 import concurrent.futures
 from tqdm import tqdm
 from itertools import repeat
 from astropy import units as u
 from scipy.stats import multivariate_normal
-# from scipy.stats.kde import gaussian_kde
 from scipy.stats import skewnorm
-# from twopiece.scale import tpnorm
 import bz2
 import pickle
 import multiprocessing as mp
-
-# global data_mag
-# data_mag= []
 
 class MCMC():
     ############
     #Main body #
     ############
     
-    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,sigma_T=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],mu_sigma_t=[2,1],ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
+    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,sigma_T=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
         '''
         This is the initialization step of the MCMC class. The MCMC can be run to fit 3 varables at the time. The variables for the fit are:
         [logMass, logAv, Age]. 
@@ -161,7 +153,7 @@ class MCMC():
         self.Age_KDE=Age_KDE
         self.mass_KDE=mass_KDE
 
-        if savedir==None: self.path2savedir=path2data+'/Giovanni/MCMC_analysis/samplers'
+        if savedir==None: self.path2savedir=self.path2data+'/Giovanni/MCMC_analysis/samplers'
         else:self.path2savedir=savedir
 
         self.parallax=parallax
@@ -192,7 +184,8 @@ class MCMC():
         
         self.ID_label=ID_label
         self.backend_sampler=backend_sampler
-        self.path2backend=path2data+sampler_dir_path
+        self.path2data = path2data
+        self.path2backend=self.path2data+sampler_dir_path
         self.show_test=show_test
         self.progress=progress
         self.parallelize_runs=parallelize_runs

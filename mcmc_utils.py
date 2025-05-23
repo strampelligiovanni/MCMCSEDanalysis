@@ -9,7 +9,6 @@ import sys,os
 from kde import KDE
 import numpy as np
 
-from astropy import units as u
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import random
@@ -19,13 +18,12 @@ import _pickle as cPickle
 import concurrent.futures
 from IPython.display import display
 from numpy import trapz
-from astropy.stats import sigma_clip
 from mcmc_plots import sample_posteriors
 from synphot.units import FLAM
 from dust_extinction.parameter_averages import CCM89
 from synphot.reddening import ExtinctionCurve
 from astropy import units as u
-from synphot import ExtinctionModel1D,Observation,SourceSpectrum,SpectralElement,Empirical1D
+from synphot import ExtinctionModel1D,Observation,SourceSpectrum,SpectralElement
 from astropy.time import Time
 import stsynphot as stsyn
 
@@ -186,7 +184,7 @@ def read_samples(filename):
 # Update dataframe #
 ####################
 
-def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir=None,pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5, parallel_runs=False):
+def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5, parallel_runs=False):
     ntarget=len(file_list)
     if kde_fit:
         for file in tqdm(file_list):
@@ -205,7 +203,7 @@ def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg
 
     return(df)
 
-def task(file,interp,kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir=None,pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5):
+def task(file,interp,kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5):
 
     ndim=len(label_list)
     ID=float(file.split('_')[-1])

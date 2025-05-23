@@ -5,22 +5,14 @@ Created on Wed Sep 22 15:40:55 2021
 
 @author: giovanni
 """
-import sys,corner,os
-sys.path.append('./')
-from config import path2projects
-sys.path.append(path2projects)
-sys.path.append(path2projects+'/imf-master/imf')
-# from imf import coolplot
-sys.path.append('./')
+import corner
 import numpy as np
 import matplotlib.pyplot as plt
 import mcmc_utils
 from IPython.display import display, Math
 from astropy import units as u
 from glob import glob
-from config import path2data
 from astropy.stats import sigma_clip
-sys.path.append(path2projects+'/Synthetic Photometry')
 
 #############
 # Ancillary #
@@ -44,10 +36,8 @@ sys.path.append(path2projects+'/Synthetic Photometry')
 #         plt.show()
 #     return(cluster,massfunc)
 
-def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples=False,show_SEDfit=False,truths=[None,None,None,None,None],bins=20,pranges=None,fx=4,fy=4,labelpad=10,path2backend=None,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30):
-        if path2loaddir==None: path2loaddir=path2data+'/Giovanni/MCMC_analysis/samplers'
+def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',show_samples=False,show_SEDfit=False,truths=[None,None,None,None,None],bins=20,pranges=None,fx=4,fy=4,labelpad=10,path2backend=None,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30):
         path2file=path2loaddir+'/samplerID_%i'%ID
-    # try:
         filename=glob(path2file)[0]
         if verbose:print(filename)
         mcmc_dict=mcmc_utils.read_samples(filename)
@@ -177,12 +167,8 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir=None,show_samples
             else:plt.close('all')
         if return_variables:
             return(logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r)
-    # except:
-    #     if verbose or return_variables: raise ValueError('Check if %s exist. Otherwise check the routine'%path2file)
-    #     else: pass
-    
-def sample_blobs(ID,mag_label_list,path2loaddir=None,color_label_list=[],showID=False,show_samples=False,sigma=3,bins=20,pranges=None,fx=3,fy=3,path2backend=None,discard=None,thin=None,labelpad=10):
-    if path2loaddir==None: path2loaddir=path2data+'/Giovanni/MCMC_analysis/samplers'
+
+def sample_blobs(ID,path2loaddir='./',showID=False,show_samples=False,sigma=3,bins=20,pranges=None,fx=3,fy=3,path2backend=None,discard=None,thin=None,labelpad=10):
     filename=glob(path2loaddir+'/*ID_%s'%ID)[0]
     print('> ',filename)
     mcmc_dict=mcmc_utils.read_samples(filename)  
