@@ -84,10 +84,10 @@ def assembling_spectra_dataframes(path2data,acc_spec_filename = 'accretion_spect
     # vega_spectrum.plot(left=2000, right=20000, flux_unit='flam', title=vega_spectrum.meta['expr'])
     return(spAcc,spectrum_with_acc_df,spectrum_without_acc_df,vega_spectrum)
 
-def interpolating_isochrones(path2synphotometry, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
+def interpolating_isochrones(iso, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
     if redo:
         ## Isochrones ((skip if already saved))
-        iso_df=pd.read_hdf(path2synphotometry+"bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
+        iso_df=pd.read_hdf(path2iso+"bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
         iso_df=iso_df.loc[np.isfinite(iso_df.logLacc.values)]
 
         node_label_list= list(mag_label_list)+['teff','logL','logg','logLacc','logMacc','R']
@@ -98,17 +98,17 @@ def interpolating_isochrones(path2synphotometry, mag_label_list, redo=False, smo
 
         interp_btsettl=mcmc_utils.interpND([x,y,z,node_list],method=method,showplot=showplot,smooth=smooth,z_label=node_label_list,workers=5)
 
-        with open(path2synphotometry+"interpolated_isochrones.pck", 'wb') as file_handle:
+        with open(path2iso+"interpolated_isochrones.pck", 'wb') as file_handle:
             pickle.dump(interp_btsettl , file_handle)
     else:
         ## Load interpolated isochrones
-        with open(path2synphotometry + "interpolated_isochrones.pck", 'rb') as file_handle:
+        with open(path2iso + "interpolated_isochrones.pck", 'rb') as file_handle:
             interp_btsettl = pickle.load(file_handle)
     return (interp_btsettl)
 
-def assembling_dictionaries(filter_list,mag_label_list,sat_list):
+def assembling_dictionaries(filter_list,mag_label_list,sat_list, Rv):
     ## Extinction
-    Av_dict = mcmc_utils.get_Av_list(filter_list, verbose=False, Rv=3.1)
+    Av_dict = mcmc_utils.get_Av_list(filter_list, verbose=False, Rv=Rv)
 
     ## Saturation
     sat_dict = dict(zip(mag_label_list, sat_list))
@@ -169,8 +169,8 @@ if __name__ == '__main__':
     args = parse()
     config = load(args.pipe_cfg)
     path2data = config['paths']['data']
-    path2synphotometry = config['paths']['synphotometry']
-    catalogue = config['catalogue']
+    path2iso = config['paths']['iso']
+    catalogue = config['catalogue']['name']
 
     if args.make_paths:
         ################################################################################################################
@@ -188,16 +188,16 @@ if __name__ == '__main__':
     ################################################################################################################
     # Setting the stage for the MCMC run                                                                           #
     ################################################################################################################
-    ID_label = config['ID_list'] #'avg_ids'
     # Selecting the filters and saturation limits and magnitudes to work with from the catalog
-    filter_list = config['filter_list'] # ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W',, 'F139M']
-    sat_list = config['sat_list'] #['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
+    filter_list = config['filter_list']
+    sat_list = config['sat_list']
+    Rv = config['Rv']
     mag_label_list = ['m'+i[1:4] for i in filter_list]
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
-    interp_btsettl = interpolating_isochrones(path2synphotometry,mag_label_list)
+    interp_btsettl = interpolating_isochrones(path2iso,mag_label_list)
     # Creating a filter dependent dictionary for the extinction, saturation and bandpass
-    Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list)
+    Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list,Rv)
     # Loading known priors (you can use NONE later on if you miss some or want to skip them)
     # Default:  1) if you have the parallax, it will skipp all the other (Teff excluded if present).
     #           2) If you have the Teff, it will skip the prior on the mass.
@@ -207,29 +207,29 @@ if __name__ == '__main__':
     # This is the start of the MCMC run                                                                            #
     ################################################################################################################
 
-    ID_list = config['ID_list'] #[8] #[8,35,77,209]
+    ID_list = config['ID_list']
     print(ONC_combined_df.loc[ONC_combined_df.avg_ids.isin(ID_list)])
 
     mcmc=MCMC(interp_btsettl,
               mag_label_list,
               sat_dict,
               Av_dict,
-              workers=5,
-              sigma_T=150,
-              conv_thr=0.01,
-              ndesired=2000,
-              err_max=0.1,
-              err_min=0.01,
-              logMass_range=[-2, 1],
-              logAge_range=[0, 4],
-              logSPacc_range=[-5, 1],
-              logAv_range=[-1, 2],
-              Parallax_range=[0.02, 6],
-              nwalkers_ndim_niters=[100, 5, 20000],
-              parallelize_sampler=True,
-              show_test=True,
-              progress=True,
-              blobs=True,
+              workers=config['MCMC']['workers'],
+              sigma_T=config['MCMC']['sigma_T'],
+              conv_thr=config['MCMC']['conv_thr'],
+              ndesired=config['MCMC']['ndesired'],
+              err_max=config['MCMC']['err_max'],
+              err_min=config['MCMC']['err_min'],
+              logMass_range=config['MCMC']['logMass_range'],
+              logAge_range=config['MCMC']['logAge_range'],
+              logSPacc_range=config['MCMC']['logSPacc_range'],
+              logAv_range=config['MCMC']['logAv_range'],
+              Parallax_range=config['MCMC']['parallax_range'],
+              nwalkers_ndim_niters=config['MCMC']['nwalkers_ndim_niters'],
+              parallelize_sampler=config['MCMC']['parallelize_sampler'],
+              show_test=config['MCMC']['show_test'],
+              progress=config['MCMC']['progress'],
+              blobs=config['MCMC']['blobs'],
               parallax_KDE=parallax_KDE0,
               Av_KDE=Av_KDE0,
               Age_KDE=Age_KDE0,
@@ -252,11 +252,12 @@ if __name__ == '__main__':
         file_list.append(path2data + f"/analysis/samplers/samplerID_{ID}")
 
     ################################################################################################################
-    # I use these values to evaluate if the distance for my source is compatible with Orion                        #
+    # I use these values to sample the sampler, plot corner plots and trace plots,                                 #
+    # and evaluate if the distance for my source is compatible with Orion                                          #
     ################################################################################################################
-    pmean = 2.4957678361522033
-    pM = 0.31352512471278526
-    pm = 0.31352512471278526
+    pmean = config['MCMC']['pmean']
+    pM = config['MCMC']['pM']
+    pm = config['MCMC']['pm']
 
     # Sampling posteriors
     ONC_combined_df = mcmc_utils.update_dataframe(ONC_combined_df, file_list, interp_btsettl, kde_fit=True,
@@ -274,14 +275,13 @@ if __name__ == '__main__':
         img = mpimg.imread(file)
 
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
-        fig, ax[0], Ndict = plot_SEDfit(spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum, bp_dict,
+        fig, ax[0], Ndict = plot_SEDfit(spAcc, spectrum_without_acc_df, vega_spectrum, bp_dict,
                                         sat_dict, interp_btsettl, ONC_combined_df.loc[ONC_combined_df.avg_ids == ID],
-                                        mag_label_list, Rv=3.1, ms=2, showplot=False, fig=fig, ax=ax[0], truths=True,
-                                        Av_dict=Av_dict)
+                                        mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0])
         ax[1].imshow(img)
         ax[1].axis('off')
         fig.suptitle(int(ID))
         plt.tight_layout()
         plt.savefig(path2data+'/analysis/fits/ID%i.png' % int(ID))
-        plt.show()
+        plt.close()
 
