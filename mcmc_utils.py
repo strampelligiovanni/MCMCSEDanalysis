@@ -184,26 +184,33 @@ def read_samples(filename):
 # Update dataframe #
 ####################
 
-def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5, parallel_runs=False):
+def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5, parallel_runs=False):
     ntarget=len(file_list)
     if kde_fit:
         for file in tqdm(file_list):
-            ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r=task(file,interp,kde_fit,discard,thin,label_list,path2savedir=path2savedir,path2loaddir=path2loaddir,pmin=pmin,pmax=pmax,verbose=verbose,showplots=showplots,sigma=sigma)
+            ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r=task(
+                file,interp,kde_fit=kde_fit,label_list=label_list,path2savedir=path2savedir,path2loaddir=path2loaddir,
+                pmin=pmin,pmax=pmax,verbose=verbose,showplots=showplots,sigma=sigma)
             df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
     else:
         if parallel_runs:
             print('> workers %i,chunksize %i,ntarget %i'%(workers,chunksize,ntarget))
             with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-                for ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r in tqdm(executor.map(task,file_list,repeat(interp),repeat(kde_fit),repeat(discard),repeat(thin),repeat(label_list),repeat(path2savedir),repeat(path2loaddir),repeat(pmin),repeat(pmax),repeat(verbose),repeat(showplots),repeat(sigma),chunksize=chunksize)):
+                for ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r in tqdm(executor.map(
+                        task,file_list,repeat(interp),repeat(kde_fit),repeat(label_list),
+                        repeat(path2savedir),repeat(path2loaddir),repeat(pmin),repeat(pmax),repeat(verbose),
+                        repeat(showplots),repeat(sigma),chunksize=chunksize)):
                     df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
         else:
             for file in tqdm(file_list):
-                ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r=task(file,interp,kde_fit,discard,thin,label_list,path2savedir=path2savedir,path2loaddir=path2loaddir,pmin=pmin,pmax=pmax,verbose=verbose,showplots=showplots,sigma=sigma)
+                ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r=task(
+                    file,interp,kde_fit=kde_fit,label_list=label_list,path2savedir=path2savedir,path2loaddir=path2loaddir,
+                    pmin=pmin,pmax=pmax,verbose=verbose,showplots=showplots,sigma=sigma)
                 df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
 
     return(df)
 
-def task(file,interp,kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5):
+def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5):
 
     ndim=len(label_list)
     ID=float(file.split('_')[-1])
@@ -213,12 +220,15 @@ def task(file,interp,kde_fit=False,discard=0,thin=1,label_list=['logMass','logAv
         if not verbose:
             with HiddenPrints():
                 logMass, elogMass_u, elogMass_d, logAv, elogAv_u, elogAv_d, logAge, elogAge_u, elogAge_d, logSPacc, elogSPacc_u, elogSPacc_d, Parallax, eParallax_u, eParallax_d, T, eT_u, eT_d, logL, elogL_d, elogL_u, logLacc, elogLacc_d, elogLacc_u, logMacc, elogMacc_d, elogMacc_u, kde_list, area_r = sample_posteriors(
-                    interp, float(ID), ndim, verbose=verbose, fx=10, fy=10, show_samples=False, showplots=showplots,
+                    interp, float(ID), ndim, verbose=verbose, showplots=showplots,
                     bins=10, kde_fit=kde_fit, return_fig=False, return_variables=True, path2savedir=path2savedir,
                     path2loaddir=path2loaddir, pranges=None, pmin=pmin, pmax=pmax, sigma=sigma)
 
         else:
-            logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=sample_posteriors(interp,float(ID),ndim,verbose=verbose,fx=10,fy=10,show_samples=False,showplots=showplots,bins=10,kde_fit=kde_fit,return_fig=False,return_variables=True,path2savedir=path2savedir,path2loaddir=path2loaddir,pranges=None,pmin=pmin,pmax=pmax,sigma=sigma)
+            logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=sample_posteriors(
+                interp,float(ID),ndim,verbose=verbose,showplots=showplots,bins=10,kde_fit=kde_fit,
+                return_fig=False,return_variables=True,path2savedir=path2savedir,path2loaddir=path2loaddir,pranges=None,
+                pmin=pmin,pmax=pmax,sigma=sigma)
         Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_d=Dist-((Parallax+eParallax_u)*u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_u=((Parallax-eParallax_d)*u.mas).to(u.parsec, equivalencies=u.parallax()).value-Dist
