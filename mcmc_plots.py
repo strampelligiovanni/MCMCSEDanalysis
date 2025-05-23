@@ -36,7 +36,7 @@ from astropy.stats import sigma_clip
 #         plt.show()
 #     return(cluster,massfunc)
 
-def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',show_samples=False,show_SEDfit=False,truths=[None,None,None,None,None],bins=20,pranges=None,fx=4,fy=4,labelpad=10,path2backend=None,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30):
+def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None,None,None,None,None],bins=20,pranges=None,labelpad=10,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30):
         path2file=path2loaddir+'/samplerID_%i'%ID
         filename=glob(path2file)[0]
         if verbose:print(filename)
@@ -103,20 +103,6 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',show_samples
         txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
         txt = txt.format(logMacc, elogMacc_d, elogMacc_u, r"logM_{acc}")
         if verbose:display(Math(txt))
-    
-        if show_samples:
-            fig, axes = plt.subplots(ndim, figsize=(8, 7), sharex=True)
-            for i in range(ndim):
-                ax = axes[i]
-                ax.plot(samples[:, :, i], "k", alpha=0.3)
-                if truths[i]!= None:ax.axhline(truths[i])
-                ax.set_xlim(0, len(samples))
-                ax.set_ylabel(label_list[i])
-                ax.yaxis.set_label_coords(-0.1, 0.5)
-        
-            axes[-1].set_xlabel("step number")
-            plt.tight_layout()
-            plt.show()
 
         fig=plt.figure(figsize=(13, 13))
         figure = corner.corner(flat_samples,truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=fig,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD')#,label_kwargs={'fontsize':20},title_kwargs={'fontsize':20})
@@ -168,7 +154,7 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',show_samples
         if return_variables:
             return(logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r)
 
-def sample_blobs(ID,path2loaddir='./',showID=False,show_samples=False,sigma=3,bins=20,pranges=None,fx=3,fy=3,path2backend=None,discard=None,thin=None,labelpad=10):
+def sample_blobs(ID,path2loaddir='./',showID=False,show_samples=False,sigma=3,bins=20,pranges=None,fx=3,fy=3,discard=None,thin=None,labelpad=10):
     filename=glob(path2loaddir+'/*ID_%s'%ID)[0]
     print('> ',filename)
     mcmc_dict=mcmc_utils.read_samples(filename)  
@@ -226,5 +212,3 @@ def sample_blobs(ID,path2loaddir='./',showID=False,show_samples=False,sigma=3,bi
         ax.axvline(eval_u+val, color="k",linestyle='-.')
     plt.tight_layout()
     plt.show()
-    
-
