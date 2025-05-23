@@ -1,0 +1,10 @@
+paths:
+  data: /Users/gstrampelli/MCMC_analysis/Tutorial/
+  synphotometry: /Users/gstrampelli/Synthetic_Photometry/
+catalogue: ONC_catalogue.csv
+ID_label : 'avg_ids'
+ID_list : [8] #[8,35,77,209]
+# Selecting the filters and saturation limits and magnitudes to work with from the catalog
+filter_list : ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W',
+               'F130N', 'F139M']
+sat_list : ['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
