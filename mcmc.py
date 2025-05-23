@@ -240,13 +240,20 @@ def run(MCMC,avg_df,ID_list):
         if chunksize <=0:
             chunksize = 1
         print('> workers %i,chunksize %i,ntarget %i'%(MCMC.workers,chunksize,ntarget))
+    #     with concurrent.futures.ProcessPoolExecutor(max_workers=MCMC.workers) as executor:#,mp_context=mp.get_context('fork')) as executor:
+    #         for tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax in tqdm(executor.map(aggregated_tasks,repeat(MCMC),ID_list,repeat(avg_df),repeat(parallax_kde),repeat(Av_kde),repeat(Age_kde),repeat(mass_kde),chunksize=chunksize)):
+    #             save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
+    # else:
+    #     for ID in ID_list:
+    #         tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
+    #         save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
         with concurrent.futures.ProcessPoolExecutor(max_workers=MCMC.workers) as executor:#,mp_context=mp.get_context('fork')) as executor:
-            for tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax in tqdm(executor.map(aggregated_tasks,repeat(MCMC),ID_list,repeat(avg_df),repeat(parallax_kde),repeat(Av_kde),repeat(Age_kde),repeat(mass_kde),chunksize=chunksize)):
-                save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
+            for ID,mu_T,sig_T,mu_Parallax,sig_Parallax in tqdm(executor.map(aggregated_tasks,repeat(MCMC),ID_list,repeat(avg_df),repeat(parallax_kde),repeat(Av_kde),repeat(Age_kde),repeat(mass_kde),chunksize=chunksize)):
+                save_target(MCMC,ID)
     else:
         for ID in ID_list:
-            tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
-            save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
+            ID,mu_T,sig_T,mu_Parallax,sig_Parallax=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
+            save_target(MCMC,ID)
 
 
 #############
@@ -277,8 +284,10 @@ def aggregated_tasks(MCMC,ID,avg_df,parallax_kde_in,Av_kde_in,Age_kde_in,mass_kd
                     MCMC.emag_label_list=np.delete(MCMC.emag_label_list,index1)
     
     mag_list,emag_list,mu_T,sig_T,mu_Parallax,sig_Parallax=pre_task(MCMC,avg_df,ID)
-    tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list=task(MCMC,ID,mag_list,emag_list,avg_df)
-    return(tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax)
+    # tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list=task(MCMC,ID,mag_list,emag_list,avg_df)
+    # return(tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list,ID,mu_T,sig_T,mu_Parallax,sig_Parallax)
+    task(MCMC,ID,mag_list,emag_list,avg_df)
+    return(ID,mu_T,sig_T,mu_Parallax,sig_Parallax)
 
 def pre_task(MCMC,avg_df,ID):
     if MCMC.simulation: 
@@ -432,17 +441,39 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
             with Pool(initializer=init_pool, initargs=(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)) as pool:
               if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype, pool=pool, moves=moves, backend=backend)
               else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,pool=pool,moves=moves, backend=backend)
-              sampler,autocorr,converged,burnin,thin=sampler_convergence(MCMC,sampler,pos)
+              sampler=sampler_convergence(MCMC,sampler,pos)
 
         else:
             if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype,moves=moves, backend=backend)
             else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,moves=moves, backend=backend)
-            sampler,autocorr,converged,burnin,thin=sampler_convergence(MCMC,sampler,pos)
-        tau = sampler.get_autocorr_time(tol=0)
-        return(tau,autocorr,converged,burnin,thin,sampler,variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list)
+            sampler=sampler_convergence(MCMC,sampler,pos)
 
+        tau = sampler.get_autocorr_time(tol=0)
+        MCMC.tau=tau
+        MCMC.sampler=sampler
+        MCMC.variable_label_list=variable_label_list
+        MCMC.variable_list=variable_list
+        MCMC.mag_list=mag_list
+        MCMC.emag_list=emag_list
+        MCMC.mag_good_list=mag_good_list
+        MCMC.color_list=color_list
+        MCMC.ecolor_list=ecolor_list
+        MCMC.color_good_list=color_good_list
     else:
-        return(np.nan,np.nan,np.nan,np.nan,np.nan,[],variable_label_list,variable_list,mag_list,emag_list,mag_good_list,color_list,ecolor_list,color_good_list)
+        MCMC.tau=np.nan
+        MCMC.autocorr=np.nan
+        MCMC.converged=np.nan
+        MCMC.burnin=np.nan
+        MCMC.thin=np.nan
+        MCMC.sampler=[]
+        MCMC.variable_label_list=variable_label_list
+        MCMC.variable_list=variable_list
+        MCMC.mag_list=mag_list
+        MCMC.emag_list=emag_list
+        MCMC.mag_good_list=mag_good_list
+        MCMC.color_list=color_list
+        MCMC.ecolor_list=ecolor_list
+        MCMC.color_good_list=color_good_list
 
 def sampler_convergence(MCMC,sampler,pos):
     # We'll track how the average autocorrelation time estimate changes
@@ -493,45 +524,36 @@ def sampler_convergence(MCMC,sampler,pos):
             n_to_go +=1
             if n_to_go > n_post_convergence_runs:
                 break
-    return(sampler,autocorr,converged,burnin,thin)
+    MCMC.autocorr=autocorr
+    MCMC.converged=converged
+    MCMC.burnin=burnin
+    MCMC.thin=thin
+    MCMC.n_post_convergence_runs=n_post_convergence_runs
+    return(sampler)
 
                     
-def save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin):
-    if MCMC.parallelize_sampler: print('> tau: ',tau)
-    if ((any(mag_good_list) or any(color_good_list))) and not (all(np.isnan(tau))):
-        if converged and ( (sampler.iteration+1) >= MCMC.niters):
-            converged = False
-            burnin = np.int_(sampler.iteration/2)
-            thin = np.int_(sampler.iteration/20)
-            
-        if converged and (burnin == MCMC.niters):
-            converged = False
-            burnin = np.int_(sampler.iteration/2)
-            thin = np.int_(sampler.iteration/20)
-        if MCMC.discard==None:MCMC.discard=burnin
-        if MCMC.thin==None:MCMC.thin=thin
-        
-        
-        blobs = sampler.get_blobs(discard=MCMC.discard, thin=MCMC.thin)
-        samples = sampler.get_chain(discard=MCMC.discard, thin=MCMC.thin)
+def save_target(MCMC,ID):
+    if MCMC.parallelize_sampler: print('> tau: ',MCMC.tau)
+    if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and MCMC.converged and ((MCMC.sampler.iteration+1) >= MCMC.niters):
+        if MCMC.burnin==None:
+            MCMC.burnin=np.int_(MCMC.sampler.iteration/2)
+        if MCMC.thin==None:
+            MCMC.thin=np.int_(MCMC.sampler.iteration/20)
+
+        blobs = MCMC.sampler.get_blobs(discard=MCMC.burnin, thin=MCMC.thin)
+        samples = MCMC.sampler.get_chain(discard=MCMC.burnin, thin=MCMC.thin)
         dict_to_save = {'id':ID,
                          'samples':samples.tolist(),
-                         # 'log_prob':sampler.get_log_prob(),
                          'blobs':blobs.tolist(),
-                         'autocorr':autocorr,
-                         'converged':converged,
+                         'autocorr':MCMC.autocorr,
+                         'converged':MCMC.converged,
                          'thin':MCMC.thin,
-                         'burnin':MCMC.discard,
-                         'tau':tau,
-                         'variables_label':variable_label_list.tolist(),
-                         'variables':variable_list.tolist(),
-                         # 'sdbid':row['star_ID'],
-                         # 'name':row['star_ID'],
-                         # 'par_sigmas':par_sigmas,
-                         # 'par_iqrs':par_iqrs,
-                         # 'par_means':par_means,
-                         # 'par_std':par_std,
-                         # 'q2fit':q2fit
+                         'burnin':MCMC.burnin,
+                         'niters': MCMC.niters,
+                         'n_post_convergence_runs': MCMC.n_post_convergence_runs,
+                         'tau':MCMC.tau,
+                         'variables_label':MCMC.variable_label_list.tolist(),
+                         'variables':MCMC.variable_list.tolist()
                          }
                  
         with bz2.BZ2File(MCMC.path2savedir+'/samplerID_%s'%ID, 'w') as f:
