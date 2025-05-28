@@ -29,7 +29,7 @@ class MCMC():
     #Main body #
     ############
     
-    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,sigma_T=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
+    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,sigma_T=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
         '''
         This is the initialization step of the MCMC class. The MCMC can be run to fit 3 varables at the time. The variables for the fit are:
         [logMass, logAv, Age]. 
@@ -39,11 +39,13 @@ class MCMC():
         interp : list
             dictionary of interpolation functions.
         mag_label_list : list
-            list of magnitude labels. 
+            list of magnitude labels.
         sat_dict : dict
             dict of saturation values. 
         AV_dict : list
             dictionary of filter extinction values.
+        emag_label_list : list
+            list of magnitude uncertainties labels. If None, use default [em_{filter1},em_{filter2},...].
         parallax_KDE: func
             Prior for the parallax of the star when we don't have a mesurment from Gaia. Default None
         Av_KDE: func
@@ -145,7 +147,10 @@ class MCMC():
         self.interp=interp
         
         self.mag_label_list=np.array(mag_label_list)
-        self.emag_label_list=np.array(['e%s'%i[1:] for i in mag_label_list])
+        if emag_label_list is not None:
+            self.emag_label_list=np.array(emag_label_list)
+        else:
+            self.emag_label_list=['e'+i for i in mag_label_list]
         self.sat_dict=sat_dict
         self.AV_dict=AV_dict
         self.parallax_KDE=parallax_KDE
@@ -319,9 +324,9 @@ def pre_task(MCMC,avg_df,ID):
             if MCMC.eparallax_label in avg_df.columns:
                 sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
             else:
-                sig_Parallax=MCMC.sigma_Parallax
+                sig_Parallax=MCMC.eparallax
         else:
-            sig_Parallax = MCMC.sigma_Parallax
+            sig_Parallax = MCMC.eparallax
 
     if MCMC.simulation: 
         mag_list=[]
