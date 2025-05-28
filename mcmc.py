@@ -214,7 +214,7 @@ class MCMC():
         self.ndesired=ndesired
         self.sigma_T=sigma_T
 
-def run(MCMC,avg_df,ID_list):
+def run(MCMC,avg_df,ID_list, forced=False):
     '''
     This is the actual run of the MCMC 
 
@@ -224,7 +224,8 @@ def run(MCMC,avg_df,ID_list):
         this is the dataframe with the average magnitudes of each target.
     ID_list : list
         list of ids in the avg_df to pull for this run.
-
+    forced: bool,
+        save fit even when not converging. Default is False.
     Returns
     -------
     MCMC_sim_df: pandas dataframe.
@@ -254,11 +255,11 @@ def run(MCMC,avg_df,ID_list):
     #         save_target(MCMC,ID,sampler,tau,mag_good_list,color_good_list,variable_label_list,variable_list,autocorr,converged,burnin,thin)
         with concurrent.futures.ProcessPoolExecutor(max_workers=MCMC.workers) as executor:#,mp_context=mp.get_context('fork')) as executor:
             for ID,mu_T,sig_T,mu_Parallax,sig_Parallax in tqdm(executor.map(aggregated_tasks,repeat(MCMC),ID_list,repeat(avg_df),repeat(parallax_kde),repeat(Av_kde),repeat(Age_kde),repeat(mass_kde),chunksize=chunksize)):
-                save_target(MCMC,ID)
+                save_target(MCMC,ID, forced=forced)
     else:
         for ID in ID_list:
             ID,mu_T,sig_T,mu_Parallax,sig_Parallax=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
-            save_target(MCMC,ID)
+            save_target(MCMC,ID, forced=forced)
 
 
 #############
@@ -520,7 +521,8 @@ def sampler_convergence(MCMC,sampler,pos):
                     print('Running {} iterations post-convergence'.format(n_post_convergence_runs))
                 sys.stdout.flush()
             
-            elif index>=int(MCMC.niters/MCMC.check_acor): 
+            elif index>=int(MCMC.niters/MCMC.check_acor):
+                n_post_convergence_runs = np.nan
                 break
             old_tau = tau
         
@@ -529,6 +531,7 @@ def sampler_convergence(MCMC,sampler,pos):
             n_to_go +=1
             if n_to_go > n_post_convergence_runs:
                 break
+
     MCMC.autocorr=autocorr
     MCMC.converged=converged
     MCMC.burnin=burnin
@@ -537,9 +540,9 @@ def sampler_convergence(MCMC,sampler,pos):
     return(sampler)
 
                     
-def save_target(MCMC,ID):
+def save_target(MCMC,ID,forced=False):
     if MCMC.parallelize_sampler: print('> tau: ',MCMC.tau)
-    if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and MCMC.converged and ((MCMC.sampler.iteration+1) >= MCMC.niters):
+    if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced) and ((MCMC.sampler.iteration+1) >= MCMC.niters):
         if MCMC.burnin==None:
             MCMC.burnin=np.int_(MCMC.sampler.iteration/2)
         if MCMC.thin==None:
