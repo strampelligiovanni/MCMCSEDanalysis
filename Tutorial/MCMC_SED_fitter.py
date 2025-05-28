@@ -193,6 +193,7 @@ if __name__ == '__main__':
     filter_list = config['filter_list']
     sat_list = config['sat_list']
     Rv = config['Rv']
+    ID_label = config['ID_label']
     mag_label_list = ['m'+i[1:4] for i in filter_list]
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
@@ -209,7 +210,7 @@ if __name__ == '__main__':
     ################################################################################################################
 
     ID_list = config['ID_list']
-    print(input_df.loc[input_df.avg_ids.isin(ID_list)])
+    print(input_df.loc[input_df[ID_label].isin(ID_list)])
 
     mcmc=MCMC(interp_btsettl,
               mag_label_list,
@@ -277,7 +278,7 @@ if __name__ == '__main__':
 
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
         fig, ax[0], Ndict = plot_SEDfit(spAcc, spectrum_without_acc_df, vega_spectrum, bp_dict,
-                                        sat_dict, interp_btsettl, input_df.loc[input_df.avg_ids == ID],
+                                        sat_dict, interp_btsettl, input_df.loc[input_df[ID_label] == ID],
                                         mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0])
         ax[1].imshow(img)
         ax[1].axis('off')
