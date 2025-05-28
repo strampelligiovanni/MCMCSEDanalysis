@@ -169,6 +169,7 @@ if __name__ == '__main__':
     args = parse()
     config = load(args.pipe_cfg)
     path2data = config['paths']['data']
+    path2priors = config['paths']['priors']
     path2iso = config['paths']['iso']
     catalogue = config['catalogue']['name']
 
@@ -183,7 +184,7 @@ if __name__ == '__main__':
     ################################################################################################################
     # Importing Catalog                                                                                            #
     ################################################################################################################
-    ONC_combined_df = pd.read_csv(path2data + catalogue)
+    input_df = pd.read_csv(path2data + catalogue)
 
     ################################################################################################################
     # Setting the stage for the MCMC run                                                                           #
@@ -201,14 +202,14 @@ if __name__ == '__main__':
     # Loading known priors (you can use NONE later on if you miss some or want to skip them)
     # Default:  1) if you have the parallax, it will skipp all the other (Teff excluded if present).
     #           2) If you have the Teff, it will skip the prior on the mass.
-    parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0 = assembling_priors(path2data)
+    parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0 = assembling_priors(path2priors)
 
     ################################################################################################################
     # This is the start of the MCMC run                                                                            #
     ################################################################################################################
 
     ID_list = config['ID_list']
-    print(ONC_combined_df.loc[ONC_combined_df.avg_ids.isin(ID_list)])
+    print(input_df.loc[input_df.avg_ids.isin(ID_list)])
 
     mcmc=MCMC(interp_btsettl,
               mag_label_list,
@@ -237,7 +238,7 @@ if __name__ == '__main__':
               path2data=path2data,
               savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
-    run(mcmc, ONC_combined_df, ID_list) # ---> This will run the MCMC and save the sampler
+    run(mcmc, input_df, ID_list) # ---> This will run the MCMC and save the sampler
 
     ################################################################################################################
     # This part is very specific for my ONC Work.                                                                  #
@@ -260,7 +261,7 @@ if __name__ == '__main__':
     pm = config['MCMC']['pm']
 
     # Sampling posteriors
-    ONC_combined_df = mcmc_utils.update_dataframe(ONC_combined_df, file_list, interp_btsettl, kde_fit=True,
+    input_df = mcmc_utils.update_dataframe(input_df, file_list, interp_btsettl, kde_fit=True,
                                                   pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/analysis/samplers',
                                                   path2savedir=path2data+'/analysis/corners', parallel_runs=False, verbose=True)
 
@@ -276,7 +277,7 @@ if __name__ == '__main__':
 
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
         fig, ax[0], Ndict = plot_SEDfit(spAcc, spectrum_without_acc_df, vega_spectrum, bp_dict,
-                                        sat_dict, interp_btsettl, ONC_combined_df.loc[ONC_combined_df.avg_ids == ID],
+                                        sat_dict, interp_btsettl, input_df.loc[input_df.avg_ids == ID],
                                         mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0])
         ax[1].imshow(img)
         ax[1].axis('off')
