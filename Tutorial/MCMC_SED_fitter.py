@@ -32,6 +32,18 @@ def parse():
     parser.add_argument('--make-dir', dest='make_paths', help='Create all needed directories', action='store_true')
     return parser.parse_args()
 
+def pprint_all(self, max_rows=None, max_columns=None, expand_frame=False):
+    with pd.option_context(
+        'display.max_rows', max_rows if max_rows is not None else None,
+        'display.max_columns', max_columns if max_columns is not None else None,
+        'display.expand_frame_repr', expand_frame
+    ):
+        print(self)
+
+# Patch it ONCE for all DataFrames
+if not hasattr(pd.DataFrame, 'pprint_all'):
+    pd.DataFrame.pprint_all = pprint_all
+
 def load(file):
     if not isinstance(file, str):
         return file
@@ -41,13 +53,12 @@ def load(file):
             ret = yaml.load(f)
         return ret
 
-def assembling_spectra_dataframes(path2data,acc_spec_filename = 'accretion_spectrum_2016.fits'):
+def assembling_spectra_dataframes(path2accr_spect,path2models,path2models_w_acc,acc_spec_filename = 'accretion_spectrum_2016.fits'):
     ### Accr Spectrum
-    path2accr_spect = path2data + '/Synthetic Photometry/Models/accretion_spectrum'
     spAcc = SourceSpectrum.from_file(path2accr_spect + '/' + acc_spec_filename)
 
     ### Load Spectra without accretium from file
-    file_list = sorted(glob(path2data + "/Synthetic Photometry/Models/bt_settl_agss2009/Rebinned/*.dat"))
+    file_list = sorted(glob(path2models + "/*.dat"))
     spectrum_list = []
     T_list = []
     logg_list = []
@@ -62,7 +73,7 @@ def assembling_spectra_dataframes(path2data,acc_spec_filename = 'accretion_spect
         ['Teff', 'logg']).sort_values(['Teff', 'logg'])
 
     ### Load Spectra with accretium from file
-    file_list = sorted(glob(path2data + "/Synthetic Photometry/Models/bt_settl_agss2009_acc/*.dat"))
+    file_list = sorted(glob(path2models_w_acc + "/*.dat"))
     spectrum_list = []
     T_list = []
     logg_list = []
@@ -75,6 +86,7 @@ def assembling_spectra_dataframes(path2data,acc_spec_filename = 'accretion_spect
                 T_list.append(temp)
                 logg_list.append(logg)
                 logAcc_list.append(logacc)
+
     spectrum_with_acc_df = pd.DataFrame(
         {'Teff': T_list, 'logg': logg_list, 'logAcc': logAcc_list, 'Spectrum': spectrum_list}).set_index(
         ['Teff', 'logg', 'logAcc']).sort_values(['Teff', 'logg', 'logAcc'])
@@ -170,8 +182,12 @@ if __name__ == '__main__':
     config = load(args.pipe_cfg)
     path2data = config['paths']['data']
     path2priors = config['paths']['priors']
+    path2accr_spect = config['paths']['accr_spect']
+    path2models = config['paths']['models']
+    path2models_w_acc = config['paths']['models_w_acc']
     path2iso = config['paths']['iso']
     catalogue = config['catalogue']['name']
+    os.environ["PYSYN_CDBS"] = config['paths']['cdbs']
 
     if args.make_paths:
         ################################################################################################################
@@ -185,7 +201,6 @@ if __name__ == '__main__':
     # Importing Catalog                                                                                            #
     ################################################################################################################
     input_df = pd.read_csv(path2data + catalogue)
-
     ################################################################################################################
     # Setting the stage for the MCMC run                                                                           #
     ################################################################################################################
@@ -194,7 +209,8 @@ if __name__ == '__main__':
     sat_list = config['sat_list']
     Rv = config['Rv']
     ID_label = config['ID_label']
-    mag_label_list = ['m'+i[1:4] for i in filter_list]
+    mag_label_list =  ['m' + i[1:4] for i in filter_list]
+    emag_label_list =  ['e' + i[1:4] for i in filter_list]
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
     interp_btsettl = interpolating_isochrones(path2iso,mag_label_list)
@@ -210,12 +226,14 @@ if __name__ == '__main__':
     ################################################################################################################
 
     ID_list = config['ID_list']
-    print(input_df.loc[input_df[ID_label].isin(ID_list)])
+    print(input_df.loc[input_df[ID_label].isin(ID_list)].pprint_all())
 
     mcmc=MCMC(interp_btsettl,
               mag_label_list,
               sat_dict,
               Av_dict,
+              emag_label_list= emag_label_list,
+              ID_label=ID_label,
               workers=config['MCMC']['workers'],
               sigma_T=config['MCMC']['sigma_T'],
               conv_thr=config['MCMC']['conv_thr'],
@@ -239,14 +257,14 @@ if __name__ == '__main__':
               path2data=path2data,
               savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
-    run(mcmc, input_df, ID_list) # ---> This will run the MCMC and save the sampler
-
-    ################################################################################################################
-    # This part is very specific for my ONC Work.                                                                  #
-    # I used these routines to update the DF with the generated new values and draw the summary plots.             #
-    # You can always read the sampler in the samplers dir and sample the posterior and generate your own plots     #
-    # skipping entirely this section.                                                                              #
-    ################################################################################################################
+    # run(mcmc, input_df, ID_list,forced=True) # ---> This will run the MCMC and save the sampler
+    #
+    # ################################################################################################################
+    # # This part is very specific for my ONC Work.                                                                  #
+    # # I used these routines to update the DF with the generated new values and draw the summary plots.             #
+    # # You can always read the sampler in the samplers dir and sample the posterior and generate your own plots     #
+    # # skipping entirely this section.                                                                              #
+    # ################################################################################################################
 
     # Loading the posterior distributions saved in the sampler
     file_list=[]
@@ -271,7 +289,7 @@ if __name__ == '__main__':
     ################################################################################################################
 
     # Assembling Spectra dataframes for final plots
-    spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2data)
+    spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2accr_spect, path2models, path2models_w_acc)
     for ID in tqdm(ID_list):
         file = path2data+'/analysis/corners/cornerID%i.png' % int(ID)
         img = mpimg.imread(file)
