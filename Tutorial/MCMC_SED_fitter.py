@@ -257,14 +257,14 @@ if __name__ == '__main__':
               path2data=path2data,
               savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
-    # run(mcmc, input_df, ID_list,forced=True) # ---> This will run the MCMC and save the sampler
-    #
-    # ################################################################################################################
-    # # This part is very specific for my ONC Work.                                                                  #
-    # # I used these routines to update the DF with the generated new values and draw the summary plots.             #
-    # # You can always read the sampler in the samplers dir and sample the posterior and generate your own plots     #
-    # # skipping entirely this section.                                                                              #
-    # ################################################################################################################
+    run(mcmc, input_df, ID_list,forced=True) # ---> This will run the MCMC and save the sampler
+
+    ################################################################################################################
+    # This part is very specific for my ONC Work.                                                                  #
+    # I used these routines to update the DF with the generated new values and draw the summary plots.             #
+    # You can always read the sampler in the samplers dir and sample the posterior and generate your own plots     #
+    # skipping entirely this section.                                                                              #
+    ################################################################################################################
 
     # Loading the posterior distributions saved in the sampler
     file_list=[]
