@@ -26,7 +26,7 @@ MCMC:
   err_min: 0.01
   logMass_range: [-2, 1]
   logAge_range: [0, 4]
-  logSPacc_range: [-5, -4.9]
+  logSPacc_range: [-5, 1]
   logAv_range: [-1, 2]
   parallax_range: [0.02, 6]
   nwalkers_ndim_niters: [100, 5, 20000]
