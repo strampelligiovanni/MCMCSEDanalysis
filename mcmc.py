@@ -634,8 +634,17 @@ def save_target(MCMC,ID,forced=False):
         with bz2.BZ2File(MCMC.path2savedir+'/samplerID_%s'%ID, 'w') as f:
             pickle.dump(dict_to_save, f)
     else:
-        raise Warning(f'ID {ID} di NOT converged.')
-        
+        if not ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))):
+            raise Warning(f'Not enough good colors/magnitudes for ID {ID}')
+        elif (all(np.isnan(MCMC.tau))):
+            raise Warning(f'Tau as nans for ID {ID}')
+        elif not (MCMC.converged):
+            raise Warning(f'ID {ID} did NOT converged.')
+        elif ((MCMC.sampler.iteration+1) < MCMC.niters):
+            raise Warning(f'ID {ID} exited before completing the required number of iterations.')
+
+
+
 ##################################
 # Probability functions          #
 # var can be either mass or Teff #
