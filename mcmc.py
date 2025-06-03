@@ -636,7 +636,7 @@ def save_target(MCMC,ID,forced=False):
     else:
         if not ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))):
             raise Warning(f'Not enough good colors/magnitudes for ID {ID}')
-        elif (all(np.isnan(MCMC.tau))):
+        elif (any(np.isnan(MCMC.tau))):
             raise Warning(f'Tau as nans for ID {ID}')
         elif not (MCMC.converged):
             raise Warning(f'ID {ID} did NOT converged.')
