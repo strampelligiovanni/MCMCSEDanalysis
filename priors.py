@@ -5,17 +5,10 @@ Created on Thu Sep 23 12:09:40 2021
 
 @author: giovanni
 """
-import sys
-from config import path2projects
-sys.path.append(path2projects+'/imf-master/imf')
-# import imf
-
 import numpy as np
-# from mcmc_plots import show_cluster
 import scipy.stats as ss
 import pandas as pd
 from scipy.stats.kde import gaussian_kde
-# from scipy.stats import norm,lognorm
 
 class generator(ss.rv_continuous):
     # def normal_pdf(self, x,mu,sig):
