@@ -215,16 +215,30 @@ if __name__ == '__main__':
     interp_btsettl = interpolating_isochrones(path2iso,mag_label_list)
     # Creating a filter dependent dictionary for the extinction, saturation and bandpass
     Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list,Rv)
-    # Loading known priors (you can use NONE later on if you miss some or want to skip them)
-    # Default:  1) if you have the parallax, it will skipp all the other (Teff excluded if present).
-    #           2) If you have the Teff, it will skip the prior on the mass.
+
+    # Loading KDE for priors to use as general priors in case specific prior for the target is missing.
+    # Note: If you have the prior for Teff, it will skip the KDE prior on the mass.
     parallax_KDE0, Av_KDE0, Age_df, Age_KDE0, mass_KDE0 = assembling_priors(path2priors)
+
+    ID_list = config['ID_list']
+    #To add prior knowledge for the star's parameters we need to add the following entry to the catalog.
+    # If any of these values are nans, or absent, then the pipeline will use the KDEs if provided.
+    # If they are None, then no prior will be used for that parameter.
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Parallax'] = 2.768875
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eParallax'] = 150
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Teff'] = 3402
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eTeff'] = 150
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Av'] = 3.17
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eAv'] = 1
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Age'] = 4.56
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eAge'] = 1
+    input_df.loc[input_df[ID_label].isin(ID_list), 'SpAcc'] = 0.042
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eSpAcc'] = 0.5
 
     ################################################################################################################
     # This is the start of the MCMC run                                                                            #
     ################################################################################################################
 
-    ID_list = config['ID_list']
     print(input_df.loc[input_df[ID_label].isin(ID_list)].pprint_all())
 
     mcmc=MCMC(interp_btsettl,
@@ -233,8 +247,17 @@ if __name__ == '__main__':
               Av_dict,
               emag_label_list= emag_label_list,
               ID_label=ID_label,
+              Teff_label=config['MCMC']['Teff_label'],
+              eTeff_label=config['MCMC']['eTeff_label'],
+              parallax_label=config['MCMC']['parallax_label'],
+              eparallax_label=config['MCMC']['eparallax_label'],
+              Av_label=config['MCMC']['Av_label'],
+              eAv_label=config['MCMC']['eAv_label'],
+              Age_label=config['MCMC']['Age_label'],
+              eAge_label=config['MCMC']['eAge_label'],
+              SpAcc_label=config['MCMC']['SpAcc_label'],
+              eSpAcc_label=config['MCMC']['eSpAcc_label'],
               workers=config['MCMC']['workers'],
-              sigma_T=config['MCMC']['sigma_T'],
               conv_thr=config['MCMC']['conv_thr'],
               ndesired=config['MCMC']['ndesired'],
               err_max=config['MCMC']['err_max'],
