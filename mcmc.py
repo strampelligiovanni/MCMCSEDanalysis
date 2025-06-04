@@ -374,7 +374,7 @@ def pre_task(MCMC,avg_df,ID):
             else:
                 MCMC.sig_Age=1
         else:
-            MCMC.sig_Av = 1
+            MCMC.sig_Age = 1
 
         if MCMC.SpAcc_label in avg_df.columns:
             MCMC.mu_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.SpAcc_label].values[0]
@@ -396,8 +396,8 @@ def pre_task(MCMC,avg_df,ID):
         MCMC.mag_list=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.mag_label_list].values[0]
         MCMC.emag_list=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.emag_label_list].values[0]
 
-def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15,var16,var17,var18,var19,var20,var21,var22,var23,var24,var25,var26):
-    global data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict
+def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15,var16,var17,var18,var19,var20,var21,var22,var23,var24,var25,var26,var27,var28,var29,var30,var31,var32):
+    global data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,mu_Age,sig_Age,mu_Av,sig_Av,mu_SpAcc,sig_SpAcc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict
     data_mag = var1
     data_color = var2
     logMass_min=var3
@@ -415,15 +415,21 @@ def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var
     sig_Parallax=var15
     mu_T=var16
     sig_T=var17
-    interp=var18
-    mag_good_label_list=var19
-    color_good_label_list=var20
-    my_normal_mags=var21
-    parallax_kde=var22
-    Av_kde=var23
-    Age_kde=var24
-    mass_kde=var25
-    AV_dict=var26
+    mu_Age=var18
+    sig_Age=var19
+    mu_Av=var20
+    sig_Av=var21
+    mu_SpAcc=var22
+    sig_SpAcc=var23
+    interp=var24
+    mag_good_label_list=var25
+    color_good_label_list=var26
+    my_normal_mags=var27
+    parallax_kde=var28
+    Av_kde=var29
+    Age_kde=var30
+    mass_kde=var31
+    AV_dict=var32
     
 def task(MCMC,ID,mag_list,emag_list,avg_df):
     global my_normal_mags,my_normal_colors,AV_dict,interp,data_mag,data_color,mag_good_label_list,color_good_label_list,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs
@@ -503,7 +509,7 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
             
         
         if MCMC.parallelize_sampler:
-            with Pool(initializer=init_pool, initargs=(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,MCMC.mu_Parallax,MCMC.sig_Parallax,MCMC.mu_T,MCMC.sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)) as pool:
+            with Pool(initializer=init_pool, initargs=(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,MCMC.mu_Parallax,MCMC.sig_Parallax,MCMC.mu_T,MCMC.sig_T,MCMC.mu_Age,MCMC.sig_Age,MCMC.mu_Av,MCMC.sig_Av,MCMC.mu_SpAcc,MCMC.sig_SpAcc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)) as pool:
               if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype, pool=pool, moves=moves, backend=backend)
               else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,pool=pool,moves=moves, backend=backend)
               sampler=sampler_convergence(MCMC,sampler,pos)
@@ -511,7 +517,7 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
         else:
             if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype,moves=moves, backend=backend)
             else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,moves=moves, backend=backend)
-            init_pool(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,MCMC.mu_Parallax,MCMC.sig_Parallax,MCMC.mu_T,MCMC.sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)
+            init_pool(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,MCMC.mu_Parallax,MCMC.sig_Parallax,MCMC.mu_T,MCMC.sig_T,MCMC.mu_Age,MCMC.sig_Age,MCMC.mu_Av,MCMC.sig_Av,MCMC.mu_SpAcc,MCMC.sig_SpAcc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)
             sampler=sampler_convergence(MCMC,sampler,pos)
 
         tau = sampler.get_autocorr_time(tol=0)
