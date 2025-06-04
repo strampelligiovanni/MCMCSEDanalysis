@@ -1,19 +1,18 @@
 paths:
-  data: /Users/gstrampelli/PycharmProjects/NGC1976/out/
+  data: /Users/gstrampelli/MCMC_analysis/Tutorial/
   priors: /Users/gstrampelli/MCMC_analysis/Tutorial/
   accr_spect: /Users/gstrampelli/MCMC_analysis/Tutorial/Synthetic Photometry/Models/accretion_spectrum/
   models: /Users/gstrampelli/MCMC_analysis/Tutorial/Synthetic Photometry/Models/bt_settl_agss2009/Rebinned/
   models_w_acc: /Users/gstrampelli/MCMC_analysis/Tutorial/Synthetic Photometry/Models/bt_settl_agss2009_acc/
   iso: /Users/gstrampelli/MCMC_analysis/Tutorial/Synthetic Photometry/
-  cdbs: "/home/gstrampelli/anaconda3/lib/python3.8/site-packages/stsynphot/grp/hst/cdbs/"
 catalogue:
-  name: unq_candidates.csv
-ID_list : [4145]
-ID_label: unq_ids
+  name: ONC_catalogue.csv
+ID_list : [8]
+ID_label: avg_ids
 Rv: 3.1
 # Selecting the filters and saturation limits and magnitudes to work with from the catalog
-filter_list : ['F435W', 'F555W', 'F775W', 'F850LP']
-sat_list : [16, 15.75, 12.25, 15.25, 14.25]
+filter_list: ['F336W', 'F439W', 'F656N', 'F814W', 'F435W', 'F555W', 'F658N', 'F775W', 'F850LP', 'F110W', 'F160W', 'F130N', 'F139M']
+sat_list: ['N/A', 'N/A', 'N/A', 'N/A', 16, 15.75, 12.25, 15.25, 14.25, 0, 0, 10.9, 9.5]
 MCMC:
   pmean : 2.4957678361522033
   pM : 0.31352512471278526
