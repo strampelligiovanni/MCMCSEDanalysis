@@ -442,7 +442,7 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
     if np.isnan(MCMC.mu_Parallax):
         xParallax_min,xParallax_max=[MCMC.logParallax_min,MCMC.logParallax_max]
     else:
-        if MCMC.mu_Parallax-MCMC.sig_Parallax*3 >0.002: xParallax_min,xParallax_max=[MCMC.mu_Parallax-sig_Parallax*3,MCMC.mu_Parallax+sig_Parallax*3]
+        if MCMC.mu_Parallax-MCMC.sig_Parallax*3 >0.002: xParallax_min,xParallax_max=[MCMC.mu_Parallax-MCMC.sig_Parallax*3,MCMC.mu_Parallax+MCMC.sig_Parallax*3]
         else:xParallax_min,xParallax_max=[0.002,MCMC.mu_Parallax+MCMC.mu_Parallax+MCMC.sig_Parallax*3]
 
     blobs=MCMC.blobs
@@ -574,18 +574,17 @@ def sampler_convergence(MCMC,sampler,pos):
             # Check convergence
             converged = np.all(tau * MCMC.Fconv <= sampler.iteration)
             converged &= np.all( (np.abs(old_tau - tau) / tau) < MCMC.conv_thr)
-            if converged:
+            if converged: # and (sampler.iteration +1 >= MCMC.niters):
 
                 #Once converged, set the number of desired runs for further running the sampler
                 #until we have the desired number of post-convergence, iid samples
                 burnin = sampler.iteration
                 n_post_convergence_runs = int(MCMC.ndesired//MCMC.nwalkers*thin)
                 n_to_go = 0
-                if MCMC.parallelize_sampler:
-                    print('Converged at iteration {}'.format(burnin))
-                    print('Autocorrelation times equal to: {}'.format(tau))
-                    print('Thinning equal to: {}'.format(thin))
-                    print('Running {} iterations post-convergence'.format(n_post_convergence_runs))
+                print('Converged at iteration {}'.format(burnin))
+                print('Autocorrelation times equal to: {}'.format(tau))
+                print('Thinning equal to: {}'.format(thin))
+                print('Running {} iterations post-convergence'.format(n_post_convergence_runs))
                 sys.stdout.flush()
             
             elif index>=int(MCMC.niters/MCMC.check_acor):
@@ -610,6 +609,7 @@ def sampler_convergence(MCMC,sampler,pos):
 def save_target(MCMC,ID,forced=False):
     if MCMC.parallelize_sampler: print('> tau: ',MCMC.tau)
     if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced) and ((MCMC.sampler.iteration+1) >= MCMC.niters):
+    # if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced):
         if MCMC.burnin==None:
             MCMC.burnin=np.int_(MCMC.sampler.iteration/2)
         if MCMC.thin==None:
@@ -636,14 +636,12 @@ def save_target(MCMC,ID,forced=False):
     else:
         if not ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))):
             raise Warning(f'Not enough good colors/magnitudes for ID {ID}')
-        elif (any(np.isnan(MCMC.tau))):
+        elif (all(np.isnan(MCMC.tau))):
             raise Warning(f'Tau as nans for ID {ID}')
         elif not (MCMC.converged):
             raise Warning(f'ID {ID} did NOT converged.')
-        elif ((MCMC.sampler.iteration+1) < MCMC.niters):
-            raise Warning(f'ID {ID} exited before completing the required number of iterations.')
-
-
+        # elif ((MCMC.sampler.iteration+1) < MCMC.niters):
+        #     raise Warning(f'ID {ID} exited before completing the required number of iterations.')
 
 ##################################
 # Probability functions          #
