@@ -29,7 +29,7 @@ class MCMC():
     #Main body #
     ############
     
-    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,sigma_T=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',Av_label='Av',eAv_label='eAv',Age_label='A',eAge_label='eA',SpAcc_label='SpAcc',eSpAcc_label='eSpAcc',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,nmag2fit=1,magnitude_fit=False,color_fit=False,magnitude_color_fit=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
+    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,eAv=1,eAge=1,eSpAcc=0.5,eTeff=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',Av_label='Av',eAv_label='eAv',Age_label='A',eAge_label='eA',SpAcc_label='SpAcc',eSpAcc_label='eSpAcc',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
         '''
         This is the initialization step of the MCMC class. The MCMC can be run to fit 3 varables at the time. The variables for the fit are:
         [logMass, logAv, Age]. 
@@ -91,8 +91,14 @@ class MCMC():
             label identifying the Teff in the input dataframe. The default is 'Teff'.
         eTeff_label : str, optional
             label identifying the error on Teff in the input dataframe. The default is 'eTeff'.
-        sigma_T : float, optional
-            devault value for eTeff if not provided the catalog. The default is 150.
+        eTeff : float, optional
+            default value for eTeff if not provided in the catalog. The default is 150.
+        eAge : float, optional
+            default value for the Age if not provided in the catalog. The default is 1.
+        eAv : float, optional
+            default value for Av if not provided the in catalog. The default is 1.
+        eSpAcc : float, optional
+            default value for SpAcc if not provided the in catalog. The default is 0.5.
         parallax_label : str, optional
             label identifying the parallax of the star in the input dataframe. The default is 'parallax'.
         eparallax_label : str, optional
@@ -175,7 +181,10 @@ class MCMC():
 
         self.parallax=parallax
         self.eparallax=eparallax
-        
+        self.eAv=eAv
+        self.eAge=eAge
+        self.eSpAcc=eSpAcc
+
         self.discard=discard
         self.thin=thin
 
@@ -231,7 +240,7 @@ class MCMC():
         self.Fconv=Fconv
         self.conv_thr=conv_thr
         self.ndesired=ndesired
-        self.sigma_T=sigma_T
+        self.eTeff=eTeff
 
 def run(MCMC,avg_df,ID_list, forced=False):
     '''
@@ -330,23 +339,16 @@ def pre_task(MCMC,avg_df,ID):
         else:
             MCMC. mu_T=np.nan
         if MCMC.eTeff_label in avg_df.columns:
-            if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]):
-                MCMC.sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]
-            else:
-                MCMC.sig_T = MCMC.sigma_T
+            MCMC.sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]
         else:
-            MCMC.sig_T = MCMC.sigma_T
+            MCMC.sig_T = MCMC.eTeff
 
         if MCMC.parallax_label in avg_df.columns:
             MCMC.mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_label].values[0]
         else:
             MCMC.mu_Parallax=np.nan
-
         if MCMC.eparallax_label in avg_df.columns:
-            if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label] == ID, MCMC.eparallax_label].values[0]):
-                MCMC.sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
-            else:
-                MCMC.sig_Parallax=MCMC.eparallax
+            MCMC.sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
         else:
             MCMC.sig_Parallax = MCMC.eparallax
 
@@ -354,40 +356,28 @@ def pre_task(MCMC,avg_df,ID):
             MCMC.mu_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Av_label].values[0]
         else:
             MCMC.mu_Av=np.nan
-
         if MCMC.eAv_label in avg_df.columns:
-            if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label] == ID, MCMC.eAv_label].values[0]):
-                MCMC.sig_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAv_label].values[0]
-            else:
-                MCMC.sig_Av=0.1
+            MCMC.sig_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAv_label].values[0]
         else:
-            MCMC.sig_Av = 0.1
+            MCMC.sig_Av = MCMC.eAv
 
         if MCMC.Age_label in avg_df.columns:
             MCMC.mu_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Age_label].values[0]
         else:
             MCMC.mu_Age=np.nan
-
         if MCMC.eAge_label in avg_df.columns:
-            if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label] == ID, MCMC.eAge_label].values[0]):
-                MCMC.sig_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAge_label].values[0]
-            else:
-                MCMC.sig_Age=1
+            MCMC.sig_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAge_label].values[0]
         else:
-            MCMC.sig_Age = 1
+            MCMC.sig_Age = MCMC.eAge
 
         if MCMC.SpAcc_label in avg_df.columns:
             MCMC.mu_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.SpAcc_label].values[0]
         else:
             MCMC.mu_SpAcc=np.nan
-
         if MCMC.eSpAcc_label in avg_df.columns:
-            if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label] == ID, MCMC.eSpAcc_label].values[0]):
-                MCMC.sig_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eSpAcc_label].values[0]
-            else:
-                MCMC.sig_SpAcc=0.1
+            MCMC.sig_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eSpAcc_label].values[0]
         else:
-            MCMC.sig_SpAcc = 0.1
+            MCMC.sig_SpAcc = MCMC.eSpAcc
 
     if MCMC.simulation:
         MCMC.mag_list=[]
@@ -670,21 +660,21 @@ def log_prior(params):
             else:
                 lp_parallax=0
         if not np.isnan(mu_Av):
-            lp_Av = np.log(skewnorm.pdf(logAv_x, a=0, loc=mu_Av, scale=sig_Av))
+            lp_Av = np.log(skewnorm.pdf(10**logAv_x, a=0, loc=mu_Av, scale=sig_Av))
         else:
             if Av_kde != None:
                 lp_Av = np.log(Av_kde.pdf(logAv_x))
             else:
                 lp_Av = 0
         if not np.isnan(mu_Age):
-            lp_A = np.log(skewnorm.pdf(logAge_x, a=0, loc=mu_Age, scale=sig_Age))
+            lp_A = np.log(skewnorm.pdf(10**logAge_x, a=0, loc=mu_Age, scale=sig_Age))
         else:
             if Age_kde != None:
                 lp_A=np.log(Age_kde.pdf(logAge_x))
             else:
                 lp_A = 0
         if not np.isnan(mu_SpAcc):
-            lp_SpAcc = np.log(skewnorm.pdf(logSPacc_x, a=0, loc=mu_SpAcc, scale=sig_SpAcc))
+            lp_SpAcc = np.log(skewnorm.pdf(10**logSPacc_x, a=0, loc=mu_SpAcc, scale=sig_SpAcc))
         else:
             lp_SpAcc = 0
         if not np.isnan(mu_T):
