@@ -266,13 +266,11 @@ def run(MCMC,avg_df,ID_list, forced=False):
             chunksize = 1
         print('> workers %i,chunksize %i,ntarget %i'%(MCMC.workers,chunksize,ntarget))
         with concurrent.futures.ProcessPoolExecutor(max_workers=MCMC.workers) as executor:
-            # for ID,mu_T,sig_T,mu_Parallax,sig_Parallax in tqdm(executor.map(aggregated_tasks,repeat(MCMC),ID_list,repeat(avg_df),repeat(parallax_kde),repeat(Av_kde),repeat(Age_kde),repeat(mass_kde),chunksize=chunksize)):
             for ID in tqdm(executor.map(aggregated_tasks, repeat(MCMC), ID_list, repeat(avg_df), repeat(parallax_kde),
                                         repeat(Av_kde), repeat(Age_kde), repeat(mass_kde), chunksize=chunksize)):
                 save_target(MCMC,ID, forced=forced)
     else:
         for ID in ID_list:
-            # ID,mu_T,sig_T,mu_Parallax,sig_Parallax=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
             ID=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
             save_target(MCMC,ID, forced=forced)
 
@@ -281,8 +279,7 @@ def run(MCMC,avg_df,ID_list, forced=False):
 # MCMC task #
 #############
 def aggregated_tasks(MCMC,ID,avg_df,parallax_kde_in,Av_kde_in,Age_kde_in,mass_kde_in):
-    global mu_T,sig_T,mu_Parallax,sig_Parallax,parallax_kde,Av_kde,Age_kde,mass_kde
-    # global parallax_kde,Av_kde,Age_kde,mass_kde
+    global parallax_kde,Av_kde,Age_kde,mass_kde
     parallax_kde=parallax_kde_in
     Av_kde=Av_kde_in
     Age_kde=Age_kde_in
@@ -304,10 +301,7 @@ def aggregated_tasks(MCMC,ID,avg_df,parallax_kde_in,Av_kde_in,Age_kde_in,mass_kd
                     index1 = np.argwhere(MCMC.mag_label_list=='m658')
                     MCMC.mag_label_list=np.delete(MCMC.mag_label_list,index1)
                     MCMC.emag_label_list=np.delete(MCMC.emag_label_list,index1)
-    
-    # mag_list,emag_list,mu_T,sig_T,mu_Parallax,sig_Parallax=pre_task(MCMC,avg_df,ID)
-    # task(MCMC,ID,mag_list,emag_list,avg_df)
-    # return(ID,mu_T,sig_T,mu_Parallax,sig_Parallax)
+
     pre_task(MCMC,avg_df,ID)
     task(MCMC,ID,MCMC.mag_list,MCMC.emag_list,avg_df)
     return(ID)
@@ -401,7 +395,6 @@ def pre_task(MCMC,avg_df,ID):
     else: 
         MCMC.mag_list=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.mag_label_list].values[0]
         MCMC.emag_list=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.emag_label_list].values[0]
-    # return(mag_list,emag_list,mu_T,sig_T,mu_Parallax,sig_Parallax)
 
 def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var13,var14,var15,var16,var17,var18,var19,var20,var21,var22,var23,var24,var25,var26):
     global data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,mu_Parallax,sig_Parallax,mu_T,sig_T,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict
