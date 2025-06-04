@@ -574,22 +574,24 @@ def sampler_convergence(MCMC,sampler,pos):
             # Check convergence
             converged = np.all(tau * MCMC.Fconv <= sampler.iteration)
             converged &= np.all( (np.abs(old_tau - tau) / tau) < MCMC.conv_thr)
-            if converged: # and (sampler.iteration +1 >= MCMC.niters):
+            if (sampler.iteration +1 >= MCMC.niters):
+                if converged:
+                    #Once converged, set the number of desired runs for further running the sampler
+                    #until we have the desired number of post-convergence, iid samples
+                    burnin = sampler.iteration
+                    n_post_convergence_runs = int(MCMC.ndesired//MCMC.nwalkers*thin)
+                    n_to_go = 0
+                    print('Converged at iteration {}'.format(burnin))
+                    print('Autocorrelation times equal to: {}'.format(tau))
+                    print('Thinning equal to: {}'.format(thin))
+                    print('Running {} iterations post-convergence'.format(n_post_convergence_runs))
+                    sys.stdout.flush()
 
-                #Once converged, set the number of desired runs for further running the sampler
-                #until we have the desired number of post-convergence, iid samples
-                burnin = sampler.iteration
-                n_post_convergence_runs = int(MCMC.ndesired//MCMC.nwalkers*thin)
-                n_to_go = 0
-                print('Converged at iteration {}'.format(burnin))
-                print('Autocorrelation times equal to: {}'.format(tau))
-                print('Thinning equal to: {}'.format(thin))
-                print('Running {} iterations post-convergence'.format(n_post_convergence_runs))
-                sys.stdout.flush()
-            
-            elif index>=int(MCMC.niters/MCMC.check_acor):
-                n_post_convergence_runs = np.nan
-                break
+                elif index>=int(MCMC.niters/MCMC.check_acor):
+                    n_post_convergence_runs = np.nan
+                    break
+            else:
+                converged = False
             old_tau = tau
         
         else:
