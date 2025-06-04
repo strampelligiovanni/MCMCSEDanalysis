@@ -187,7 +187,6 @@ if __name__ == '__main__':
     path2models_w_acc = config['paths']['models_w_acc']
     path2iso = config['paths']['iso']
     catalogue = config['catalogue']['name']
-    os.environ["PYSYN_CDBS"] = config['paths']['cdbs']
 
     if args.make_paths:
         ################################################################################################################
