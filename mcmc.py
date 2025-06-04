@@ -662,20 +662,40 @@ def log_col_likelihood(params):#,y,yerr):
 def log_prior(params):
     logMass_x,logAv_x,logAge_x,logSPacc_x,xParallax_x=params
     if (logMass_min <= logMass_x <= logMass_max) and (logAv_min <= logAv_x <= logAv_max) and (logAge_min <= logAge_x <= logAge_max) and (xParallax_min <= xParallax_x <= xParallax_max) and (logSPacc_min <= logSPacc_x <= logSPacc_max):
-        lp_Av=0
-        lp_parallax=0
-        lp_mass=0
-        lp_A=0
         if not np.isnan(mu_Parallax):
             lp_parallax = np.log(skewnorm.pdf(xParallax_x,a=0,loc=mu_Parallax, scale=sig_Parallax))
         else:
-            if parallax_kde!=None: lp_parallax=np.log(parallax_kde.pdf(xParallax_x))
-            if Av_kde!=None: lp_Av=np.log(Av_kde.pdf(logAv_x))
-            if Age_kde!=None: lp_A=np.log(Age_kde.pdf(logAge_x))
-            if mass_kde!=None: lp_mass=np.log(mass_kde.pdf(logMass_x))
-        if not np.isnan(mu_T): lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
+            if parallax_kde!=None:
+                lp_parallax=np.log(parallax_kde.pdf(xParallax_x))
+            else:
+                lp_parallax=0
+        if not np.isnan(mu_Av):
+            lp_Av = np.log(skewnorm.pdf(logAv_x, a=0, loc=mu_Av, scale=sig_Av))
+        else:
+            if Av_kde != None:
+                lp_Av = np.log(Av_kde.pdf(logAv_x))
+            else:
+                lp_Av = 0
+        if not np.isnan(mu_Age):
+            lp_A = np.log(skewnorm.pdf(logAge_x, a=0, loc=mu_Age, scale=sig_Age))
+        else:
+            if Age_kde != None:
+                lp_A=np.log(Age_kde.pdf(logAge_x))
+            else:
+                lp_A = 0
+        if not np.isnan(mu_SpAcc):
+            lp_SpAcc = np.log(skewnorm.pdf(logSPacc_x, a=0, loc=mu_SpAcc, scale=sig_SpAcc))
+        else:
+            lp_SpAcc = 0
+        if not np.isnan(mu_T):
+            lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
+        else:
+            if mass_kde!=None:
+                lp_mass=np.log(mass_kde.pdf(logMass_x))
+            else:
+                lp_mass=0
 
-        return(lp_mass+lp_parallax+lp_Av+lp_A)
+        return(lp_mass+lp_parallax+lp_Av+lp_A+lp_SpAcc)
     return(-np.inf)
 
 def log_probability(params):
