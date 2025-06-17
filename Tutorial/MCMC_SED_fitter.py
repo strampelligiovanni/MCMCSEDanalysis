@@ -96,7 +96,7 @@ def assembling_spectra_dataframes(path2accr_spect,path2models,path2models_w_acc,
     # vega_spectrum.plot(left=2000, right=20000, flux_unit='flam', title=vega_spectrum.meta['expr'])
     return(spAcc,spectrum_with_acc_df,spectrum_without_acc_df,vega_spectrum)
 
-def interpolating_isochrones(iso, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
+def interpolating_isochrones(path2iso, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
     if redo:
         ## Isochrones ((skip if already saved))
         iso_df=pd.read_hdf(path2iso+"bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
