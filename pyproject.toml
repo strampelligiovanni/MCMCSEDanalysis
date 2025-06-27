@@ -1,0 +1,23 @@
+#[build-system]
+#requires = ["setuptools>=42", "wheel"]
+#build-backend = "setuptools.build_meta"
+
+[project]
+name = "MCMCanalysis"
+description = 'An MCMC Bayesian SED fitting tool for HST datasets'
+readme = "README.rst"
+dynamic = ["version", "dependencies"] # version will come from setuptools.scm
+authors = [
+  { name="Giovanni M. Strampelli", email="gstrampelli@stsci.edu" },
+]
+
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.4", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "mcmcanalysis/_version.py"
+local_scheme = "no-local-version"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ['requirements.txt']}
