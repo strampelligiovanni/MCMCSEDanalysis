@@ -10,7 +10,7 @@ import sys,emcee,os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 sys.path.append('../')
-from mcmcanalysis import mcmc_utils
+from mcmcsedanalysis import mcmc_utils
 import numpy as np
 from astropy.table import QTable
 from multiprocessing import Pool

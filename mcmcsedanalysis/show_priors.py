@@ -7,7 +7,7 @@ This is a temporary script file.
 
 import sys,statistics,pickle
 sys.path.append('../')
-from mcmcanalysis.priors import generator
+from mcmcsedanalysis.priors import generator
 # import mcmc_utils 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ from scipy.stats import lognorm,skewnorm
 # import scipy
 # from matplotlib.ticker import PercentFormatter
 # import matplotlib.ticker
-from mcmcanalysis.kde import KDE
+from mcmcsedanalysis.kde import KDE
 
 # def tpnormal_prior(x0,ex0,ex1,xlabel='x',size = 10000, nbins=20):
 #     dist = tpnorm(loc=x0, sigma1=ex0, sigma2 =ex1)

@@ -8,7 +8,7 @@ Created on Wed Sep 22 15:40:55 2021
 import corner
 import numpy as np
 import matplotlib.pyplot as plt
-from mcmcanalysis import mcmc_utils
+from mcmcsedanalysis import mcmc_utils
 from astropy import units as u
 from glob import glob
 from astropy.stats import sigma_clip
