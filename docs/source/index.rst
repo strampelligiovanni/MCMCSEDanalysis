@@ -21,7 +21,6 @@ and accretion for each source in a provided catalog.
    :caption: Tutorials (Unfinished)
    :maxdepth: 2
 
-   tutorials
    tutorials/tutorial.ipynb
 
 .. toctree::
