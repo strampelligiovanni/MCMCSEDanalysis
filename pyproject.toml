@@ -18,6 +18,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 write_to = "mcmcanalysis/_version.py"
 local_scheme = "no-local-version"
+include = ["mcmcanalysis*"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ['requirements.txt']}
