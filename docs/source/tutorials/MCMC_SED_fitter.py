@@ -245,6 +245,7 @@ if __name__ == '__main__':
               mag_label_list,
               sat_dict,
               Av_dict,
+              spaccfit=True,
               emag_label_list= emag_label_list,
               ID_label=ID_label,
               Teff_label=config['MCMC']['Teff_label'],
