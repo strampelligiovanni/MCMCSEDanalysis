@@ -6,7 +6,7 @@ Created on Wed Sep 22 15:36:26 2021
 @author: giovanni
 """
 import sys,os
-from mcmcanalysis.kde import KDE
+from mcmcsedanalysis.kde import KDE
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ import _pickle as cPickle
 import concurrent.futures
 from IPython.display import display
 from numpy import trapz
-from mcmcanalysis.mcmc_plots import sample_posteriors
+from mcmcsedanalysis.mcmc_plots import sample_posteriors
 from synphot.units import FLAM
 from dust_extinction.parameter_averages import CCM89
 from synphot.reddening import ExtinctionCurve
