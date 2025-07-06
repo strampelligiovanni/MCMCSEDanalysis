@@ -5,6 +5,8 @@ Created on Wed Sep 22 15:40:55 2021
 
 @author: giovanni
 """
+import os
+
 import corner
 import numpy as np
 import matplotlib.pyplot as plt
@@ -147,6 +149,8 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
                 ax.plot(x,y, color='k',lw=2)
         
         plt.tight_layout(w_pad=0.,h_pad=0.)
+
+        os.makedirs(path2savedir, exist_ok=True)
         if isinstance(path2savedir, str): plt.savefig(path2savedir+'/cornerID%i.png'%ID, bbox_inches='tight')
         if return_fig: 
             plt.close()
