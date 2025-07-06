@@ -10,7 +10,7 @@ import sys,emcee,os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 sys.path.append('../')
-from mcmcanalysis import mcmc_utils
+from mcmcsedanalysis import mcmc_utils
 import numpy as np
 from astropy.table import QTable
 from multiprocessing import Pool
@@ -29,7 +29,7 @@ class MCMC():
     #Main body #
     ############
     
-    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,eAv=1,eAge=1,eSpAcc=0.5,eTeff=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',Av_label='Av',eAv_label='eAv',Age_label='A',eAge_label='eA',SpAcc_label='SpAcc',eSpAcc_label='eSpAcc',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
+    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,spaccfit=False,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,eAv=1,eAge=1,eSpAcc=0.5,eTeff=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_prior='Teff',eTeff_prior='eTeff',parallax_prior='parallax',eparallax_prior='parallax_error',Av_prior='Av',eAv_prior='eAv',Age_prior='A',eAge_prior='eA',SpAcc_prior='SpAcc',eSpAcc_prior='eSpAcc',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
         '''
         This is the initialization step of the MCMC class. The MCMC can be run to fit 3 varables at the time. The variables for the fit are:
         [logMass, logAv, Age]. 
@@ -44,6 +44,8 @@ class MCMC():
             dict of saturation values. 
         AV_dict : list
             dictionary of filter extinction values.
+        spaccfit: bool
+            if True, the SpAcc is fitted. Default is False.
         emag_label_list : list
             list of magnitude uncertainties labels. If None, use default [em_{filter1},em_{filter2},...].
         parallax_KDE: func
@@ -163,6 +165,7 @@ class MCMC():
 
         '''
         self.interp=interp
+        self.spaccfit=spaccfit
         
         self.mag_label_list=np.array(mag_label_list)
         if emag_label_list is not None:
@@ -176,8 +179,10 @@ class MCMC():
         self.Age_KDE=Age_KDE
         self.mass_KDE=mass_KDE
 
-        if savedir==None: self.path2savedir=self.path2data+'/Giovanni/MCMC_analysis/samplers'
-        else:self.path2savedir=savedir
+        if savedir==None:
+            raise ValueError('Please provide a valid path to save the samplers.')
+        else:
+            self.path2savedir=savedir
 
         self.parallax=parallax
         self.eparallax=eparallax
@@ -202,16 +207,16 @@ class MCMC():
             else: workers=1    
         print('> Selected Workers:', workers)
         self.workers=workers
-        self.Teff_label=Teff_label
-        self.eTeff_label=eTeff_label
-        self.parallax_label=parallax_label
-        self.eparallax_label=eparallax_label
-        self.Av_label=Av_label
-        self.eAv_label=eAv_label
-        self.Age_label=Age_label
-        self.eAge_label=eAge_label
-        self.SpAcc_label=SpAcc_label
-        self.eSpAcc_label=eSpAcc_label
+        self.Teff_prior=Teff_prior
+        self.eTeff_prior=eTeff_prior
+        self.parallax_prior=parallax_prior
+        self.eparallax_prior=eparallax_prior
+        self.Av_prior=Av_prior
+        self.eAv_prior=eAv_prior
+        self.Age_prior=Age_prior
+        self.eAge_prior=eAge_prior
+        self.SpAcc_prior=SpAcc_prior
+        self.eSpAcc_prior=eSpAcc_prior
 
         self.WCaII_label=WCaII_label
         
@@ -265,7 +270,8 @@ def run(MCMC,avg_df,ID_list, forced=False):
     Av_kde=MCMC.Av_KDE
     Age_kde=MCMC.Age_KDE
     mass_kde=MCMC.mass_KDE
-    
+    fit_spacc=MCMC.spaccfit
+
     if MCMC.parallelize_runs: 
 
         ntarget=len(ID_list)
@@ -276,24 +282,25 @@ def run(MCMC,avg_df,ID_list, forced=False):
         print('> workers %i,chunksize %i,ntarget %i'%(MCMC.workers,chunksize,ntarget))
         with concurrent.futures.ProcessPoolExecutor(max_workers=MCMC.workers) as executor:
             for ID in tqdm(executor.map(aggregated_tasks, repeat(MCMC), ID_list, repeat(avg_df), repeat(parallax_kde),
-                                        repeat(Av_kde), repeat(Age_kde), repeat(mass_kde), chunksize=chunksize)):
+                                        repeat(Av_kde), repeat(Age_kde), repeat(mass_kde),repeat(fit_spacc), chunksize=chunksize)):
                 save_target(MCMC,ID, forced=forced)
     else:
         for ID in ID_list:
-            ID=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde)
+            ID=aggregated_tasks(MCMC,ID,avg_df,parallax_kde,Av_kde,Age_kde,mass_kde,fit_spacc)
             save_target(MCMC,ID, forced=forced)
 
 
 #############
 # MCMC task #
 #############
-def aggregated_tasks(MCMC,ID,avg_df,parallax_kde_in,Av_kde_in,Age_kde_in,mass_kde_in):
-    global parallax_kde,Av_kde,Age_kde,mass_kde
+def aggregated_tasks(MCMC,ID,avg_df,parallax_kde_in,Av_kde_in,Age_kde_in,mass_kde_in,fit_spacc_in):
+    global parallax_kde,Av_kde,Age_kde,mass_kde,fit_spacc
     parallax_kde=parallax_kde_in
     Av_kde=Av_kde_in
     Age_kde=Age_kde_in
     mass_kde=mass_kde_in
-    
+    fit_spacc=fit_spacc_in
+
     if MCMC.WCaII_label in avg_df.columns:
         if not np.isnan(avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.WCaII_label].values[0]):
             if avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.WCaII_label].values[0]>0:
@@ -334,50 +341,90 @@ def pre_task(MCMC,avg_df,ID):
         MCMC.mu_eSpAcc = np.nan
 
     else:
-        if MCMC.Teff_label in avg_df.columns:
-            MCMC.mu_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Teff_label].values[0]
+        if isinstance(MCMC.Teff_prior, str):
+            if MCMC.Teff_prior in avg_df.columns:
+                MCMC.mu_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Teff_prior].values[0]
+            else:
+                MCMC. mu_T=np.nan
+            if MCMC.eTeff_prior in avg_df.columns:
+                MCMC.sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_prior].values[0]
+            else:
+                MCMC.sig_T = MCMC.eTeff
+        elif isinstance(MCMC.Teff_prior, (int, float)):
+            MCMC.mu_T=MCMC.Teff_prior
+            MCMC.sig_T=MCMC.eTeff_prior
         else:
-            MCMC. mu_T=np.nan
-        if MCMC.eTeff_label in avg_df.columns:
-            MCMC.sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]
-        else:
-            MCMC.sig_T = MCMC.eTeff
+            MCMC.mu_T = np.nan
+            MCMC.sig_T = np.nan
 
-        if MCMC.parallax_label in avg_df.columns:
-            MCMC.mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_label].values[0]
+        if isinstance(MCMC.parallax_prior, str):
+            if MCMC.parallax_prior in avg_df.columns:
+                MCMC.mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_prior].values[0]
+            else:
+                MCMC.mu_Parallax=np.nan
+            if MCMC.eparallax_prior in avg_df.columns:
+                MCMC.sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_prior].values[0]
+            else:
+                MCMC.sig_Parallax = MCMC.eparallax
+        elif isinstance(MCMC.parallax_prior, (int, float)):
+            MCMC.mu_Parallax=MCMC.parallax_prior
+            MCMC.sig_Parallax=MCMC.eparallax_prior
         else:
-            MCMC.mu_Parallax=np.nan
-        if MCMC.eparallax_label in avg_df.columns:
-            MCMC.sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
-        else:
-            MCMC.sig_Parallax = MCMC.eparallax
+            MCMC.mu_Parallax = np.nan
+            MCMC.sig_Parallax = np.nan
 
-        if MCMC.Av_label in avg_df.columns:
-            MCMC.mu_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Av_label].values[0]
+        if isinstance(MCMC.Av_prior, str):
+            if MCMC.Av_prior in avg_df.columns:
+                MCMC.mu_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Av_prior].values[0]
+            else:
+                MCMC.mu_Av=np.nan
+            if MCMC.eAv_prior in avg_df.columns:
+                MCMC.sig_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAv_prior].values[0]
+            else:
+                MCMC.sig_Av = MCMC.eAv
+        elif isinstance(MCMC.Av_prior, (int, float)):
+            MCMC.mu_Av=MCMC.Av_prior
+            MCMC.sig_Av=MCMC.eAv_prior
         else:
             MCMC.mu_Av=np.nan
-        if MCMC.eAv_label in avg_df.columns:
-            MCMC.sig_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAv_label].values[0]
-        else:
-            MCMC.sig_Av = MCMC.eAv
+            MCMC.sig_Av = np.nan
 
-        if MCMC.Age_label in avg_df.columns:
-            MCMC.mu_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Age_label].values[0]
+        if isinstance(MCMC.Av_prior, str):
+            if MCMC.Age_prior in avg_df.columns:
+                MCMC.mu_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Age_prior].values[0]
+            else:
+                MCMC.mu_Age=np.nan
+            if MCMC.eAge_prior in avg_df.columns:
+                MCMC.sig_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAge_prior].values[0]
+            else:
+                MCMC.sig_Age = MCMC.eAge
+        elif isinstance(MCMC.Age_prior, (int, float)):
+            MCMC.mu_Age=MCMC.Age_prior
+            MCMC.sig_Age=MCMC.eAge_prior
         else:
-            MCMC.mu_Age=np.nan
-        if MCMC.eAge_label in avg_df.columns:
-            MCMC.sig_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAge_label].values[0]
-        else:
-            MCMC.sig_Age = MCMC.eAge
+            MCMC.mu_Age = np.nan
+            MCMC.sig_Age = np.nan
 
-        if MCMC.SpAcc_label in avg_df.columns:
-            MCMC.mu_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.SpAcc_label].values[0]
+        if fit_spacc:
+            if isinstance(MCMC.SpAcc_prior, str):
+                if MCMC.SpAcc_prior in avg_df.columns:
+                    MCMC.mu_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.SpAcc_prior].values[0]
+                else:
+                    MCMC.mu_SpAcc=np.nan
+                if MCMC.eSpAcc_prior in avg_df.columns:
+                    MCMC.sig_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eSpAcc_prior].values[0]
+                else:
+                    MCMC.sig_SpAcc = MCMC.eSpAcc
+            elif isinstance(MCMC.SpAcc_prior, (int, float)):
+                MCMC.mu_SpAcc=MCMC.SpAcc_prior
+                MCMC.sig_SpAcc=MCMC.eSpAcc_prior
+            else:
+                MCMC.mu_SpAcc = np.nan
+                MCMC.sig_SpAcc = np.nan
+
         else:
-            MCMC.mu_SpAcc=np.nan
-        if MCMC.eSpAcc_label in avg_df.columns:
-            MCMC.sig_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eSpAcc_label].values[0]
-        else:
-            MCMC.sig_SpAcc = MCMC.eSpAcc
+            MCMC.mu_SpAcc = np.nan
+            MCMC.sig_SpAcc = np.nan
 
     if MCMC.simulation:
         MCMC.mag_list=[]
@@ -422,10 +469,14 @@ def init_pool(var1,var2,var3,var4,var5,var6,var7,var8,var9,var10,var11,var12,var
     AV_dict=var32
     
 def task(MCMC,ID,mag_list,emag_list,avg_df):
-    global my_normal_mags,my_normal_colors,AV_dict,interp,data_mag,data_color,mag_good_label_list,color_good_label_list,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs
+    global dtype,my_normal_mags,my_normal_colors,AV_dict,interp,data_mag,data_color,mag_good_label_list,color_good_label_list,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs
     logAv_min,logAv_max=[MCMC.logAv_min,MCMC.logAv_max]
     logAge_min,logAge_max=[MCMC.logAge_min,MCMC.logAge_max]
-    logSPacc_min,logSPacc_max=[MCMC.logSPacc_min,MCMC.logSPacc_max]
+    if fit_spacc:
+        logSPacc_min,logSPacc_max=[MCMC.logSPacc_min,MCMC.logSPacc_max]
+    else:
+        logSPacc_min,logSPacc_max=[None, None]
+
     logMass_min,logMass_max=[MCMC.logMass_min,MCMC.logMass_max]
     
     if np.isnan(MCMC.mu_Parallax):
@@ -479,16 +530,34 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
         print(variable_label_list)
 
     moves=[(emcee.moves.DEMove(), 0.7), (emcee.moves.DESnookerMove(), 0.3),]
+    dtype = MCMC.dtype
     if any(mag_good_list) or any(color_good_list):
         my_normal_mags=my_multivariate_normal(data_mag[0],data_mag[1])
         if any(color_good_list): my_normal_colors=my_multivariate_normal(data_color[0],data_color[1])      
         else: my_normal_colors=None
-        try:
-            if not np.isnan(MCMC.mu_Parallax): pos = np.array([np.array([np.random.uniform(logMass_min,logMass_max),np.random.uniform(MCMC.logAv_min,MCMC.logAv_max),np.random.uniform(MCMC.logAge_min,MCMC.logAge_max),np.random.uniform(MCMC.logSPacc_min,MCMC.logSPacc_max),np.random.uniform(xParallax_min,xParallax_max)]) for i in range(MCMC.nwalkers)])
-            else: pos = np.array([np.array([np.random.uniform(logMass_min,logMass_max),np.random.uniform(MCMC.logAv_min,MCMC.logAv_max),np.random.uniform(MCMC.logAge_min,MCMC.logAge_max),np.random.uniform(MCMC.logSPacc_min,MCMC.logSPacc_max),np.random.uniform(xParallax_min,xParallax_max)]) for i in range(MCMC.nwalkers)])
-        except:
-            print('problems with ID: ',ID)
-            return(np.nan,[],variable_label_list,variable_list,mag_list,emag_list,[False],[False],[False],[False])
+        if fit_spacc:
+            try:
+                pos = np.array([np.array(
+                        [np.random.uniform(logMass_min, logMass_max), np.random.uniform(MCMC.logAv_min, MCMC.logAv_max),
+                         np.random.uniform(MCMC.logAge_min, MCMC.logAge_max),
+                         np.random.uniform(MCMC.logSPacc_min, MCMC.logSPacc_max),
+                         np.random.uniform(xParallax_min, xParallax_max)]) for i in range(MCMC.nwalkers)])
+            except:
+                print('problems with ID: ', ID)
+                return (
+                np.nan, [], variable_label_list, variable_list, mag_list, emag_list, [False], [False], [False], [False])
+
+        else:
+            try:
+                pos = np.array([np.array(
+                        [np.random.uniform(logMass_min, logMass_max), np.random.uniform(MCMC.logAv_min, MCMC.logAv_max),
+                         np.random.uniform(MCMC.logAge_min, MCMC.logAge_max),
+                         np.random.uniform(xParallax_min, xParallax_max)]) for i in range(MCMC.nwalkers)])
+            except:
+                print('problems with ID: ', ID)
+                return (
+                np.nan, [], variable_label_list, variable_list, mag_list, emag_list, [False], [False], [False], [False])
+
         if MCMC.backend_sampler:
             path2savename = MCMC.path2backend+'sampler_ID%s.h5'%(ID)
             if os.path.exists(path2savename):
@@ -499,16 +568,32 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
             
         
         if MCMC.parallelize_sampler:
-            with Pool(initializer=init_pool, initargs=(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,MCMC.mu_Parallax,MCMC.sig_Parallax,MCMC.mu_T,MCMC.sig_T,MCMC.mu_Age,MCMC.sig_Age,MCMC.mu_Av,MCMC.sig_Av,MCMC.mu_SpAcc,MCMC.sig_SpAcc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)) as pool:
-              if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype, pool=pool, moves=moves, backend=backend)
-              else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,pool=pool,moves=moves, backend=backend)
-              sampler=sampler_convergence(MCMC,sampler,pos)
+            with Pool(initializer=init_pool, initargs=(
+            data_mag, data_color, logMass_min, logMass_max, logAv_min, logAv_max, logAge_min, logAge_max, xParallax_min,
+            xParallax_max, logSPacc_min, logSPacc_max, blobs, MCMC.mu_Parallax, MCMC.sig_Parallax, MCMC.mu_T,
+            MCMC.sig_T, MCMC.mu_Age, MCMC.sig_Age, MCMC.mu_Av, MCMC.sig_Av, MCMC.mu_SpAcc, MCMC.sig_SpAcc, interp,
+            mag_good_label_list, color_good_label_list, my_normal_mags, parallax_kde, Av_kde, Age_kde, mass_kde,
+            AV_dict)) as pool:
+                if MCMC.blobs:
+                    sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype,
+                                                    pool=pool, moves=moves, backend=backend)
+                else:
+                    sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, pool=pool, moves=moves,
+                                                    backend=backend)
+                sampler = sampler_convergence(MCMC, sampler, pos)
 
         else:
-            if MCMC.blobs:sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype,moves=moves, backend=backend)
-            else: sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability,moves=moves, backend=backend)
-            init_pool(data_mag,data_color,logMass_min,logMass_max,logAv_min,logAv_max,logAge_min,logAge_max,xParallax_min,xParallax_max,logSPacc_min,logSPacc_max,blobs,MCMC.mu_Parallax,MCMC.sig_Parallax,MCMC.mu_T,MCMC.sig_T,MCMC.mu_Age,MCMC.sig_Age,MCMC.mu_Av,MCMC.sig_Av,MCMC.mu_SpAcc,MCMC.sig_SpAcc,interp,mag_good_label_list,color_good_label_list,my_normal_mags,parallax_kde,Av_kde,Age_kde,mass_kde,AV_dict)
-            sampler=sampler_convergence(MCMC,sampler,pos)
+            if MCMC.blobs:
+                sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, blobs_dtype=MCMC.dtype,
+                                                moves=moves, backend=backend)
+            else:
+                sampler = emcee.EnsembleSampler(MCMC.nwalkers, MCMC.ndim, log_probability, moves=moves, backend=backend)
+            init_pool(data_mag, data_color, logMass_min, logMass_max, logAv_min, logAv_max, logAge_min, logAge_max,
+                      xParallax_min, xParallax_max, logSPacc_min, logSPacc_max, blobs, MCMC.mu_Parallax,
+                      MCMC.sig_Parallax, MCMC.mu_T, MCMC.sig_T, MCMC.mu_Age, MCMC.sig_Age, MCMC.mu_Av, MCMC.sig_Av,
+                      MCMC.mu_SpAcc, MCMC.sig_SpAcc, interp, mag_good_label_list, color_good_label_list, my_normal_mags,
+                      parallax_kde, Av_kde, Age_kde, mass_kde, AV_dict)
+            sampler = sampler_convergence(MCMC, sampler, pos)
 
         tau = sampler.get_autocorr_time(tol=0)
         MCMC.tau=tau
@@ -598,9 +683,8 @@ def sampler_convergence(MCMC,sampler,pos):
 
                     
 def save_target(MCMC,ID,forced=False):
-    if MCMC.parallelize_sampler: print('> tau: ',MCMC.tau)
+    print('> tau: ',MCMC.tau)
     if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced) and ((MCMC.sampler.iteration+1) >= MCMC.niters):
-    # if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced):
         if MCMC.burnin==None:
             MCMC.burnin=np.int_(MCMC.sampler.iteration/2)
         if MCMC.thin==None:
@@ -621,7 +705,7 @@ def save_target(MCMC,ID,forced=False):
                          'variables_label':MCMC.variable_label_list.tolist(),
                          'variables':MCMC.variable_list.tolist()
                          }
-                 
+
         with bz2.BZ2File(MCMC.path2savedir+'/samplerID_%s'%ID, 'w') as f:
             pickle.dump(dict_to_save, f)
     else:
@@ -631,8 +715,6 @@ def save_target(MCMC,ID,forced=False):
             raise Warning(f'Tau as nans for ID {ID}')
         elif not (MCMC.converged):
             raise Warning(f'ID {ID} did NOT converged.')
-        # elif ((MCMC.sampler.iteration+1) < MCMC.niters):
-        #     raise Warning(f'ID {ID} exited before completing the required number of iterations.')
 
 ##################################
 # Probability functions          #
@@ -650,35 +732,45 @@ def log_col_likelihood(params):#,y,yerr):
     return(ll,ym)
 
 def log_prior(params):
-    logMass_x,logAv_x,logAge_x,logSPacc_x,xParallax_x=params
-    if (logMass_min <= logMass_x <= logMass_max) and (logAv_min <= logAv_x <= logAv_max) and (logAge_min <= logAge_x <= logAge_max) and (xParallax_min <= xParallax_x <= xParallax_max) and (logSPacc_min <= logSPacc_x <= logSPacc_max):
+    if fit_spacc:
+        logMass_x,logAv_x,logAge_x,logSPacc_x,xParallax_x=params
+    else:
+        logMass_x,logAv_x,logAge_x,xParallax_x=params
+
+    if (logMass_min <= logMass_x <= logMass_max) and (logAv_min <= logAv_x <= logAv_max) and (logAge_min <= logAge_x <= logAge_max) and (xParallax_min <= xParallax_x <= xParallax_max) and ((logSPacc_min <= logSPacc_x <= logSPacc_max) if fit_spacc else True):
         if not np.isnan(mu_Parallax):
             lp_parallax = np.log(skewnorm.pdf(xParallax_x,a=0,loc=mu_Parallax, scale=sig_Parallax))
         else:
             if parallax_kde!=None:
-                lp_parallax=np.log(parallax_kde.pdf(xParallax_x))
+                lp_parallax=np.log(parallax_kde.pdf(xParallax_x))[0]
             else:
                 lp_parallax=0
         if not np.isnan(mu_Av):
             lp_Av = np.log(skewnorm.pdf(10**logAv_x, a=0, loc=mu_Av, scale=sig_Av))
         else:
             if Av_kde != None:
-                lp_Av = np.log(Av_kde.pdf(logAv_x))
+                lp_Av = np.log(Av_kde.pdf(logAv_x))[0]
             else:
                 lp_Av = 0
         if not np.isnan(mu_Age):
             lp_A = np.log(skewnorm.pdf(10**logAge_x, a=0, loc=mu_Age, scale=sig_Age))
         else:
             if Age_kde != None:
-                lp_A=np.log(Age_kde.pdf(logAge_x))
+                lp_A=np.log(Age_kde.pdf(logAge_x))[0]
             else:
                 lp_A = 0
-        if not np.isnan(mu_SpAcc):
-            lp_SpAcc = np.log(skewnorm.pdf(10**logSPacc_x, a=0, loc=mu_SpAcc, scale=sig_SpAcc))
+        if fit_spacc:
+            if not np.isnan(mu_SpAcc):
+                lp_SpAcc = np.log(skewnorm.pdf(10**logSPacc_x, a=0, loc=mu_SpAcc, scale=sig_SpAcc))
+            else:
+                lp_SpAcc = 0
         else:
             lp_SpAcc = 0
         if not np.isnan(mu_T):
-            lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
+            if fit_spacc:
+                lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
+            else:
+                lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x),a=0,loc=mu_T,scale=sig_T))
         else:
             if mass_kde!=None:
                 lp_mass=np.log(mass_kde.pdf(logMass_x))
@@ -692,45 +784,29 @@ def log_probability(params):
     mag,emag=data_mag
     col,ecol=data_color
     lp = log_prior(params)
-    y=np.append(mag,col)
-    if not np.isfinite(lp):
-        if not blobs:return(-np.inf)
-        else:
-            if len(y)==1:return(-np.inf,-np.inf)
-            elif len(y)==2:return(-np.inf,-np.inf,-np.inf)
-            elif len(y)==3:return(-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==4:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==5:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==6:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==7:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==8:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==9:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==10:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==11:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==12:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-            elif len(y)==13:return(-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf,-np.inf)
-
-    llmag,ymmag=log_mag_likelihood(params)#,mag,emag)
-    if  len(col)!=0: llcol,ymcol=log_col_likelihood(params)#,col,ecol)
-    else: llcol,ymcol=[0,0]
-    ll=llmag+llcol+lp
-    ym=np.append(ymmag,ymcol)
-    if not blobs:return(ll)
+    if  len(col)>0:
+        y=np.append(mag,col)
     else:
-        if len(y)==1: return(ll,ym[0])
-        elif len(y)==2: return(ll,ym[0],ym[1])
-        elif len(y)==3: return(ll,ym[0],ym[1],ym[2])
-        elif len(y)==4: return(ll,ym[0],ym[1],ym[2],ym[3])
-        elif len(y)==5: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4])
-        elif len(y)==6: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5])
-        elif len(y)==7: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6])
-        elif len(y)==8: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6],ym[7])
-        elif len(y)==9: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6],ym[7],ym[8])
-        elif len(y)==10: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6],ym[7],ym[8],ym[9])
-        elif len(y)==11: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6],ym[7],ym[8],ym[9],ym[10])
-        elif len(y)==12: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6],ym[7],ym[8],ym[9],ym[10],ym[11])
-        elif len(y)==13: return(ll,ym[0],ym[1],ym[2],ym[3],ym[4],ym[5],ym[6],ym[7],ym[8],ym[9],ym[10],ym[11],ym[12])
-    return(lp+llmag+llcol)
+        y=mag
+
+    if not np.isfinite(lp):
+        if not blobs:
+            return(-np.inf)
+        else:
+            return tuple([-np.inf] * (len(dtype)+1))
+
+    llmag,ymmag=log_mag_likelihood(params)#,mag,emag
+    if  len(col)>0:
+        llcol,ymcol=log_col_likelihood(params)#,col,ecol)
+        ll=llmag+llcol+lp
+        ym = np.append(ymmag, ymcol)
+    else:
+        ll=llmag+lp
+        ym=ymmag
+    if not blobs:
+        return(ll)
+    else:
+        return ll, *ym
 
 ######################
 # Ancillary routines #
@@ -741,15 +817,20 @@ def my_multivariate_normal(measurements,errs):
     return(mynormal)
 
 def model_mag(params):
-    logMass_x,logAv_x,logAge_x,logSPacc_x,xParallax_x=params
+    if fit_spacc:
+        logMass_x,logAv_x,logAge_x,logSPacc_x,xParallax_x=params
+    else:
+        logMass_x,logAv_x,logAge_x,xParallax_x=params
     variables_list=[]
     distance=(xParallax_x* u.pc).to(u.mas, equivalencies=u.parallax()).value
     DM_x=5*np.log10(distance/10)
 
-    # DM_x=5*np.log10(10**(xParallax_x* u.pc).to(u.mas, equivalencies=u.parallax()).value)
-
     for label in mag_good_label_list:
-        x=interp[label](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label]+DM_x
+        if fit_spacc:
+            x=interp[label](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label]+DM_x
+        else:
+            x=interp[label](logMass_x,logAge_x)+10**logAv_x*AV_dict[label]+DM_x
+
         variables_list.append(x)
     return(np.array(variables_list))
 
@@ -760,8 +841,12 @@ def model_col(params):
     for label in color_good_label_list:
         label1=label.split('-')[0]
         label2=label.split('-')[1]
-        x1=interp[label1](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label1]
-        x2=interp[label2](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label2]
+        if fit_spacc:
+            x1=interp[label1](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label1]
+            x2=interp[label2](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label2]
+        else:
+            x1=interp[label1](logMass_x,logAge_x)+10**logAv_x*AV_dict[label1]
+            x2=interp[label2](logMass_x,logAge_x)+10**logAv_x*AV_dict[label2]
         variables_list.append(x1-x2)
     return(np.array(variables_list))
    

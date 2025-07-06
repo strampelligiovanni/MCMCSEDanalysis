@@ -96,7 +96,7 @@ def assembling_spectra_dataframes(path2accr_spect,path2models,path2models_w_acc,
     # vega_spectrum.plot(left=2000, right=20000, flux_unit='flam', title=vega_spectrum.meta['expr'])
     return(spAcc,spectrum_with_acc_df,spectrum_without_acc_df,vega_spectrum)
 
-def interpolating_isochrones(path2iso, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
+def interpolating_isochrones(path2iso, mag_label_list, interpfile="interpolated_isochrones.pck", redo=False, smooth=0.001, method='linear', showplot=False):
     if redo:
         ## Isochrones ((skip if already saved))
         iso_df=pd.read_hdf(path2iso+"bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
@@ -110,41 +110,58 @@ def interpolating_isochrones(path2iso, mag_label_list, redo=False, smooth=0.001,
 
         interp_btsettl= mcmc_utils.interpND([x, y, z, node_list], method=method, showplot=showplot, smooth=smooth, z_label=node_label_list, workers=5)
 
-        with open(path2iso+"interpolated_isochrones.pck", 'wb') as file_handle:
+        with open(path2iso+interpfile, 'wb') as file_handle:
             pickle.dump(interp_btsettl , file_handle)
     else:
         ## Load interpolated isochrones
-        with open(path2iso + "interpolated_isochrones.pck", 'rb') as file_handle:
+        with open(path2iso + interpfile, 'rb') as file_handle:
             interp_btsettl = pickle.load(file_handle)
     return (interp_btsettl)
 
 def assembling_dictionaries(filter_list,mag_label_list,sat_list, Rv):
     ## Extinction
-    Av_dict = mcmc_utils.get_Av_list(filter_list, verbose=False, Rv=Rv)
+    Av_dict = mcmc_utils.get_Av_list(filter_list, mag_label_list, verbose=False, Rv=Rv)
 
     ## Saturation
     sat_dict = dict(zip(mag_label_list, sat_list))
 
+    bp_list = []
     ## BP dictionary
-    obsdate = Time('2005-01-1').mjd
-    bp336 = stsyn.band('acs,wfpc2,f336w')
-    bp439 = stsyn.band('acs,wfpc2,f439w')
-    bp656 = stsyn.band('acs,wfpc2,f656n')
-    bp814 = stsyn.band('acs,wfpc2,f814w')
+    for filter in filter_list:
+        obsdate = Time('2005-01-1').mjd
+        if filter.lower() == 'f336w':
+            bp = stsyn.band('acs,wfpc2,f336w')
+        elif filter.lower() == 'f439w':
+            bp = stsyn.band('acs,wfpc2,f439w')
+        elif filter.lower() == 'f656n':
+            bp = stsyn.band('acs,wfpc2,f656n')
+        elif filter.lower() == 'f814w':
+            bp = stsyn.band('acs,wfpc2,f814w')
 
-    bp435 = stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
-    bp555 = stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
-    bp658 = stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
-    bp775 = stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
-    bp850 = stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
+        elif filter.lower() == 'f435w':
+            bp = stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
+        elif filter.lower() == 'f555w':
+            bp = stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
+        elif filter.lower() == 'f658n':
+            bp = stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
+        elif filter.lower() == 'f775w':
+            bp = stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
+        elif filter.lower() == 'f850lp':
+            bp = stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
 
-    bp110 = stsyn.band('nicmos,3,f110w')
-    bp160 = stsyn.band('nicmos,3,f160w')
+        elif filter.lower() == 'f110w':
+            bp = stsyn.band('nicmos,3,f110w')
+        elif filter.lower() == 'f160w':
+            bp = stsyn.band('nicmos,3,f160w')
 
-    bp130 = stsyn.band('wfc3,ir,f130n')
-    bp139 = stsyn.band('wfc3,ir,f139m')
+        elif filter.lower() == 'f130n':
+            bp = stsyn.band('wfc3,ir,f130n')
+        elif filter.lower() == 'f139m':
+            bp = stsyn.band('wfc3,ir,f139m')
 
-    bp_list = [bp336, bp439, bp656, bp814, bp435, bp555, bp658, bp775, bp850, bp110, bp160, bp130, bp139]
+        bp_list.append(bp)
+
+    # bp_list = [bp336, bp439, bp656, bp814, bp435, bp555, bp658, bp775, bp850, bp110, bp160, bp130, bp139]
 
     bp_flattened_list = []
     for bp in bp_list:
@@ -181,6 +198,7 @@ if __name__ == '__main__':
     args = parse()
     config = load(args.pipe_cfg)
     path2data = config['paths']['data']
+    path2out = config['paths']['out']
     path2priors = config['paths']['priors']
     path2accr_spect = config['paths']['accr_spect']
     path2models = config['paths']['models']
@@ -192,9 +210,9 @@ if __name__ == '__main__':
         ################################################################################################################
         # Making output dirs                                                                                            #
         ################################################################################################################
-        os.makedirs(path2data+'/analysis/samplers', exist_ok=True)
-        os.makedirs(path2data+'/analysis/corners', exist_ok=True)
-        os.makedirs(path2data+'/analysis/fits', exist_ok=True)
+        os.makedirs(path2out+'/samplers', exist_ok=True)
+        os.makedirs(path2out+'/corners', exist_ok=True)
+        os.makedirs(path2out+'/fits', exist_ok=True)
 
     ################################################################################################################
     # Importing Catalog                                                                                            #
@@ -208,11 +226,12 @@ if __name__ == '__main__':
     sat_list = config['sat_list']
     Rv = config['Rv']
     ID_label = config['ID_label']
-    mag_label_list =  ['m_' + i.lower() for i in filter_list]
-    emag_label_list =  ['e_' +  i.lower() for i in filter_list]
+    mag_label_list =  config['mag_list']
+    emag_label_list =  config['emag_list']
+    interpfile = config['interpfile']
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
-    interp_btsettl = interpolating_isochrones(path2iso,mag_label_list)
+    interp_btsettl = interpolating_isochrones(path2iso,mag_label_list,interpfile)
     # Creating a filter dependent dictionary for the extinction, saturation and bandpass
     Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list,Rv)
 
@@ -224,39 +243,39 @@ if __name__ == '__main__':
     #To add prior knowledge for the star's parameters we need to add the following entry to the catalog.
     # If any of these values are nans, or absent, then the pipeline will use the KDEs if provided.
     # If they are None, then no prior will be used for that parameter.
-    input_df.loc[input_df[ID_label].isin(ID_list), 'Parallax'] = 2.768875
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eParallax'] = 150
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Parallax'] = 1.514106
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eParallax'] = 0.13
     input_df.loc[input_df[ID_label].isin(ID_list), 'Teff'] = 3402
     input_df.loc[input_df[ID_label].isin(ID_list), 'eTeff'] = 150
-    input_df.loc[input_df[ID_label].isin(ID_list), 'Av'] = 3.17
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eAv'] = 1
-    input_df.loc[input_df[ID_label].isin(ID_list), 'Age'] = 4.56
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eAge'] = 1
-    input_df.loc[input_df[ID_label].isin(ID_list), 'SpAcc'] = 0.042
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eSpAcc'] = 0.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Av'] = 3.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eAv'] = 0.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Age'] = 1.2
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eAge'] = 0.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'SpAcc'] = 0.18
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eSpAcc'] = 0.1
 
     ################################################################################################################
     # This is the start of the MCMC run                                                                            #
     ################################################################################################################
-
     print(input_df.loc[input_df[ID_label].isin(ID_list)].pprint_all())
 
     mcmc=MCMC(interp_btsettl,
               mag_label_list,
               sat_dict,
               Av_dict,
+              spaccfit=config['MCMC']['spaccfit'],
               emag_label_list= emag_label_list,
               ID_label=ID_label,
-              Teff_label=config['MCMC']['Teff_label'],
-              eTeff_label=config['MCMC']['eTeff_label'],
-              parallax_label=config['MCMC']['parallax_label'],
-              eparallax_label=config['MCMC']['eparallax_label'],
-              Av_label=config['MCMC']['Av_label'],
-              eAv_label=config['MCMC']['eAv_label'],
-              Age_label=config['MCMC']['Age_label'],
-              eAge_label=config['MCMC']['eAge_label'],
-              SpAcc_label=config['MCMC']['SpAcc_label'],
-              eSpAcc_label=config['MCMC']['eSpAcc_label'],
+              Teff_prior=config['MCMC']['Teff_prior'],
+              eTeff_prior=config['MCMC']['eTeff_prior'],
+              parallax_prior=config['MCMC']['parallax_prior'],
+              eparallax_prior=config['MCMC']['eparallax_prior'],
+              Av_prior=config['MCMC']['Av_prior'],
+              eAv_prior=config['MCMC']['eAv_prior'],
+              Age_prior=config['MCMC']['Age_prior'],
+              eAge_prior=config['MCMC']['eAge_prior'],
+              SpAcc_prior=config['MCMC']['SpAcc_prior'],
+              eSpAcc_prior=config['MCMC']['eSpAcc_prior'],
               workers=config['MCMC']['workers'],
               conv_thr=config['MCMC']['conv_thr'],
               ndesired=config['MCMC']['ndesired'],
@@ -277,7 +296,7 @@ if __name__ == '__main__':
               Age_KDE=Age_KDE0,
               mass_KDE=mass_KDE0,
               path2data=path2data,
-              savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
+              savedir=path2out+'/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
     run(mcmc, input_df, ID_list,forced=True) # ---> This will run the MCMC and save the sampler
 
@@ -291,7 +310,7 @@ if __name__ == '__main__':
     # Loading the posterior distributions saved in the sampler
     file_list=[]
     for ID in tqdm(ID_list):
-        file_list.append(path2data + f"/analysis/samplers/samplerID_{ID}")
+        file_list.append(path2out + f"/samplers/samplerID_{ID}")
 
     ################################################################################################################
     # I use these values to sample the sampler, plot corner plots and trace plots,                                 #
@@ -301,10 +320,16 @@ if __name__ == '__main__':
     pM = config['MCMC']['pM']
     pm = config['MCMC']['pm']
 
+    if config['MCMC']['spaccfit']:
+        label_list = ['logMass', 'logAv', 'logAge', 'logSPacc', 'Parallax']
+    else:
+        label_list = ['logMass', 'logAv', 'logAge', 'Parallax']
+
     # Sampling posteriors
     input_df = mcmc_utils.update_dataframe(input_df, file_list, interp_btsettl, kde_fit=True, ID_label=ID_label,
-                                           pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/analysis/samplers',
-                                           path2savedir=path2data+'/analysis/corners', parallel_runs=False, verbose=True)
+                                           pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2out+'/samplers',
+                                           path2savedir=path2out+'/corners', parallel_runs=False, verbose=True,
+                                           label_list=label_list,spaccfit=config['MCMC']['spaccfit'])
 
     ################################################################################################################
     # Saving summary plot                                                                                          #
@@ -313,17 +338,20 @@ if __name__ == '__main__':
     # Assembling Spectra dataframes for final plots
     spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2accr_spect, path2models, path2models_w_acc)
     for ID in tqdm(ID_list):
-        file = path2data+'/analysis/corners/cornerID%i.png' % int(ID)
+        file = path2out+'/corners/cornerID%i.png' % int(ID)
         img = mpimg.imread(file)
 
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
         fig, ax[0], Ndict = plot_SEDfit(spAcc, spectrum_without_acc_df, vega_spectrum, bp_dict,
                                         sat_dict, interp_btsettl, input_df.loc[input_df[ID_label] == ID],
-                                        mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0])
+                                        mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0],
+                                        spaccfit = config['MCMC']['spaccfit'])
         ax[1].imshow(img)
         ax[1].axis('off')
         fig.suptitle(int(ID))
         plt.tight_layout()
-        plt.savefig(path2data+'/analysis/fits/ID%i.png' % int(ID))
+        plt.savefig(path2out+'/fits/ID%i.png' % int(ID))
         plt.close()
+
+    pass
 

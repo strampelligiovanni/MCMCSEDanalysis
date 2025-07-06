@@ -7,7 +7,7 @@ This is a temporary script file.
 
 import sys,statistics,pickle
 sys.path.append('../')
-from mcmcanalysis.priors import generator
+from mcmcsedanalysis.priors import generator
 # import mcmc_utils 
 import numpy as np
 import matplotlib.pyplot as plt
