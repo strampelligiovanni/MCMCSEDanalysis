@@ -222,11 +222,17 @@ def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSP
     ID=float(file.split('_')[-1])
     mcmc_dict=read_samples(file)  
     samples=np.array(mcmc_dict['samples'])
+    if spaccfit:
+        truths = [None, None, None, None, None]
+    else:
+        truths = [None, None, None, None]
+
+
     if len(samples)>0:
         if not verbose:
             with HiddenPrints():
                 logMass, elogMass_u, elogMass_d, logAv, elogAv_u, elogAv_d, logAge, elogAge_u, elogAge_d, logSPacc, elogSPacc_u, elogSPacc_d, Parallax, eParallax_u, eParallax_d, T, eT_u, eT_d, logL, elogL_d, elogL_u, logLacc, elogLacc_d, elogLacc_u, logMacc, elogMacc_d, elogMacc_u, kde_list, area_r = sample_posteriors(
-                    interp, float(ID), ndim, verbose=verbose, showplots=showplots,label_list=label_listl,
+                    interp, float(ID), ndim, verbose=verbose, showplots=showplots,label_list=label_listl,truths=truths,
                     bins=10, kde_fit=kde_fit, return_fig=False, return_variables=True, path2savedir=path2savedir,
                     path2loaddir=path2loaddir, pranges=None, pmin=pmin, pmax=pmax, sigma=sigma, spaccfit=spaccfit)
 
@@ -234,7 +240,7 @@ def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSP
             logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=sample_posteriors(
                 interp,float(ID),ndim,verbose=verbose,showplots=showplots,bins=10,kde_fit=kde_fit,label_list=label_list,
                 return_fig=False,return_variables=True,path2savedir=path2savedir,path2loaddir=path2loaddir,pranges=None,
-                pmin=pmin,pmax=pmax,sigma=sigma,spaccfit=spaccfit)
+                truths=truths,pmin=pmin,pmax=pmax,sigma=sigma,spaccfit=spaccfit)
         Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_d=Dist-((Parallax+eParallax_u)*u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_u=((Parallax-eParallax_d)*u.mas).to(u.parsec, equivalencies=u.parallax()).value-Dist
