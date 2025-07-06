@@ -190,13 +190,13 @@ def read_samples(filename):
 # Update dataframe #
 ####################
 
-def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5, parallel_runs=False):
+def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg_ids',kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5, parallel_runs=False,spaccfit=True):
     ntarget=len(file_list)
     if kde_fit:
         for file in tqdm(file_list):
             ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r=task(
                 file,interp,kde_fit=kde_fit,label_list=label_list,path2savedir=path2savedir,path2loaddir=path2loaddir,
-                pmin=pmin,pmax=pmax,verbose=verbose,showplots=showplots,sigma=sigma)
+                pmin=pmin,pmax=pmax,verbose=verbose,showplots=showplots,sigma=sigma,spaccfit=spaccfit)
             df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
     else:
         if parallel_runs:
@@ -205,7 +205,7 @@ def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg
                 for ID,logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,Dist,eDist_u,eDist_d,area_r in tqdm(executor.map(
                         task,file_list,repeat(interp),repeat(kde_fit),repeat(label_list),
                         repeat(path2savedir),repeat(path2loaddir),repeat(pmin),repeat(pmax),repeat(verbose),
-                        repeat(showplots),repeat(sigma),chunksize=chunksize)):
+                        repeat(showplots),repeat(sigma),repeat(spaccfit),chunksize=chunksize)):
                     df.loc[df[ID_label]==ID,['MCMC_mass','MCMC_emass_u','MCMC_emass_d','MCMC_Av','MCMC_eAv_u','MCMC_eAv_d','MCMC_A','MCMC_eA_u','MCMC_eA_d','MCMC_T','MCMC_eT_u','MCMC_eT_d','MCMC_logL','MCMC_elogL_u','MCMC_elogL_d','MCMC_logSPacc','MCMC_elogSPacc_u','MCMC_elogSPacc_d','MCMC_logLacc','MCMC_elogLacc_u','MCMC_elogLacc_d','MCMC_logMacc','MCMC_elogMacc_u','MCMC_elogMacc_d','MCMC_Parallax','MCMC_eParallax_d','MCMC_eParallax_u','MCMC_d','MCMC_ed_u','MCMC_ed_d','MCMC_area_r']]=[[10**logMass, 10**(logMass+elogMass_u)-10**logMass, 10**logMass-10**(logMass-elogMass_d),10**logAv, 10**(logAv+elogAv_u)-10**logAv, 10**logAv-10**(logAv-elogAv_d),10**logAge, 10**(logAge+elogAge_u)-10**logAge, 10**logAge-10**(logAge-elogAge_d),T,eT_u,eT_d,logL,elogL_u,elogL_d,logSPacc,elogSPacc_u,elogSPacc_d,logLacc,elogLacc_u,elogLacc_d,logMacc,elogMacc_u,elogMacc_d,Parallax, eParallax_u, eParallax_d,Dist,eDist_u,eDist_d,area_r]]
         else:
             for file in tqdm(file_list):
@@ -216,7 +216,7 @@ def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg
 
     return(df)
 
-def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5):
+def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5,spaccfit=True):
 
     ndim=len(label_list)
     ID=float(file.split('_')[-1])
@@ -228,13 +228,13 @@ def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSP
                 logMass, elogMass_u, elogMass_d, logAv, elogAv_u, elogAv_d, logAge, elogAge_u, elogAge_d, logSPacc, elogSPacc_u, elogSPacc_d, Parallax, eParallax_u, eParallax_d, T, eT_u, eT_d, logL, elogL_d, elogL_u, logLacc, elogLacc_d, elogLacc_u, logMacc, elogMacc_d, elogMacc_u, kde_list, area_r = sample_posteriors(
                     interp, float(ID), ndim, verbose=verbose, showplots=showplots,
                     bins=10, kde_fit=kde_fit, return_fig=False, return_variables=True, path2savedir=path2savedir,
-                    path2loaddir=path2loaddir, pranges=None, pmin=pmin, pmax=pmax, sigma=sigma)
+                    path2loaddir=path2loaddir, pranges=None, pmin=pmin, pmax=pmax, sigma=sigma, spaccfit=spaccfit)
 
         else:
             logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=sample_posteriors(
                 interp,float(ID),ndim,verbose=verbose,showplots=showplots,bins=10,kde_fit=kde_fit,
                 return_fig=False,return_variables=True,path2savedir=path2savedir,path2loaddir=path2loaddir,pranges=None,
-                pmin=pmin,pmax=pmax,sigma=sigma)
+                pmin=pmin,pmax=pmax,sigma=sigma,spaccfit=spaccfit)
         Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_d=Dist-((Parallax+eParallax_u)*u.mas).to(u.parsec, equivalencies=u.parallax()).value
         eDist_u=((Parallax-eParallax_d)*u.mas).to(u.parsec, equivalencies=u.parallax()).value-Dist
@@ -245,14 +245,13 @@ def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSP
 ################################
 # Star and accretion proprties #
 ################################
-def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mass',T_label='teff',logL_label='logL',logLacc_label='logLacc',logMacc_label='logMacc',label_list=['mass','Av','Age','logSPacc','Parallax'],bw_method=None,kernel='linear',bandwidth2fit=np.linspace(0.01, 1, 100),kde_fit=False,path2savedir=None,return_fig=False):
+def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mass',T_label='teff',logL_label='logL',logLacc_label='logLacc',logMacc_label='logMacc',label_list=['mass','Av','Age','logSPacc','Parallax'],bw_method=None,kernel='linear',bandwidth2fit=np.linspace(0.01, 1, 100),kde_fit=False,path2savedir=None,return_fig=False,spaccfit=True):
     val_list=[]
     q_d_list=[]
     q_u_list=[]
     kde_list=[]
     for i in range(ndim):
         x=np.sort(flat_samples[:,i][~flat_samples[:,i].mask])
-        # x=np.sort(flat_samples[:,i])
         mcmc = np.percentile(x, [16, 50, 84])
         if kde_fit:
             xlinspace = np.linspace(np.nanmin(x), np.nanmax(x), 1000)
@@ -287,9 +286,17 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
             val_list.append(val)
             q_d_list.append(q[0])
             q_u_list.append(q[1])
-    
+
+    if spaccfit:
+        logSPacc=val_list
+        elogSPacc_u=q_u_list
+        elogSPacc_d=q_d_list
+    else:
+        logSPacc=np.nan
+        elogSPacc_u=np.nan
+        elogSPacc_d=np.nan
+
     logMass,logAv,logAge,logSPacc,Parallax=val_list
-    # logMass=-0.77-0.98
     elogMass_d,elogAv_d,elogAge_d,elogSPacc_d,eParallax_d=q_d_list
     elogMass_u,elogAv_u,elogAge_u,elogSPacc_u,eParallax_u=q_u_list
     
@@ -299,41 +306,89 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
     Age_u=10**(logAge+elogAge_u)
     Age_d=10**(logAge-elogAge_d)
 
-    SPacc_u=10**(logSPacc+elogSPacc_u)
-    SPacc_d=10**(logSPacc-elogSPacc_d)
+    if spaccfit:
+        SPacc_u=10**(logSPacc+elogSPacc_u)
+        SPacc_d=10**(logSPacc-elogSPacc_d)
+    else:
+        SPacc_u=np.nan
+        SPacc_d=np.nan
     
     T=round(float(interp[T_label](logMass,logAge,logSPacc)),4)
     eT_u=round(float(interp[T_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))-T,4)
     eT_d=round(T-float(interp[T_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d))),4)
-    if np.isnan(eT_d):eT_d=eT_u
-    elif np.isnan(eT_u):eT_u=eT_d
+    if np.isnan(eT_d):
+        eT_d=eT_u
+    elif np.isnan(eT_u):
+        eT_u=eT_d
 
-    L=10**float(interp[logL_label](logMass,logAge,logSPacc))
-    L_u=10**float(interp[logL_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
-    L_d=10**float(interp[logL_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+    if spaccfit:
+        L=10**float(interp[logL_label](logMass,logAge,logSPacc))
+        L_u=10**float(interp[logL_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
+        L_d=10**float(interp[logL_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+    else:
+        L=10**float(interp[logL_label](logMass,logAge))
+        L_u=10**float(interp[logL_label](np.log10(mass_u),np.log10(Age_u)))
+        L_d=10**float(interp[logL_label](np.log10(mass_d),np.log10(Age_d)))
+
     elogL_u=round(np.log10(L+L_u)-np.log10(L),4)
     elogL_d=round(np.log10(L)-np.log10(L-L_d),4)
-    if np.isnan(elogL_d):elogL_d=elogL_u
-    elif np.isnan(elogL_u):elogL_u=elogL_d
+    if np.isnan(elogL_d):
+        elogL_d=elogL_u
+    elif np.isnan(elogL_u):
+        elogL_u=elogL_d
     logL=round(np.log10(L),4)
 
-    Lacc=10**float(interp[logLacc_label](logMass,logAge,logSPacc))
-    Lacc_u=10**float(interp[logLacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
-    Lacc_d=10**float(interp[logLacc_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
-    elogLacc_u=round(np.log10(Lacc+Lacc_u)-np.log10(Lacc),4)
-    elogLacc_d=round(np.log10(Lacc)-np.log10(Lacc-Lacc_d),4)
-    if np.isnan(elogLacc_d):elogLacc_d=elogLacc_u
-    elif np.isnan(elogLacc_u):elogLacc_u=elogLacc_d
-    logLacc=round(np.log10(Lacc),4)    
-    
-    Macc=10**float(interp[logMacc_label](logMass,logAge,logSPacc))
-    Macc_u=10**float(interp[logMacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
-    Macc_d=10**float(interp[logMacc_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
-    elogMacc_u=round(np.log10(Macc+Macc_u)-np.log10(Macc),4)
-    elogMacc_d=round(np.log10(Macc)-np.log10(Macc-Macc_d),4)
-    if np.isnan(elogMacc_d):elogMacc_d=elogMacc_u
-    elif np.isnan(elogMacc_u):elogMacc_u=elogMacc_d
-    logMacc=round(np.log10(Macc),4)    
+    if spaccfit:
+        Lacc=10**float(interp[logLacc_label](logMass,logAge,logSPacc))
+        Lacc_u=10**float(interp[logLacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
+        Lacc_d=10**float(interp[logLacc_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+        elogLacc_u = round(np.log10(Lacc + Lacc_u) - np.log10(Lacc), 4)
+        elogLacc_d = round(np.log10(Lacc) - np.log10(Lacc - Lacc_d), 4)
+        logLacc = round(np.log10(Lacc), 4)
+        if np.isnan(elogLacc_d):
+            elogLacc_d = elogLacc_u
+        elif np.isnan(elogLacc_u):
+            elogLacc_u = elogLacc_d
+    else:
+        Lacc=np.nan
+        Lacc_u=np.nan
+        Lacc_d=np.nan
+        elogLacc_u=np.nan
+        elogLacc_d=np.nan
+        logLacc=np.nan
+
+    # elogLacc_u=round(np.log10(Lacc+Lacc_u)-np.log10(Lacc),4)
+    # elogLacc_d=round(np.log10(Lacc)-np.log10(Lacc-Lacc_d),4)
+    # if np.isnan(elogLacc_d):
+    #     elogLacc_d=elogLacc_u
+    # elif np.isnan(elogLacc_u):
+    #     elogLacc_u=elogLacc_d
+    # logLacc=round(np.log10(Lacc),4)
+
+    if spaccfit:
+        Macc=10**float(interp[logMacc_label](logMass,logAge,logSPacc))
+        Macc_u=10**float(interp[logMacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
+        Macc_d=10**float(interp[logMacc_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d)))
+        elogMacc_u = round(np.log10(Macc + Macc_u) - np.log10(Macc), 4)
+        elogMacc_d = round(np.log10(Macc) - np.log10(Macc - Macc_d), 4)
+        logMacc = round(np.log10(Macc), 4)
+        if np.isnan(elogMacc_d):
+            elogMacc_d = elogMacc_u
+        elif np.isnan(elogMacc_u):
+            elogMacc_u = elogMacc_d
+    else:
+        Macc=np.nan
+        Macc_u=np.nan
+        Macc_d=np.nan
+        elogMacc_u=np.nan
+        elogMacc_d=np.nan
+        logMacc=np.nan
+
+    # elogMacc_u=round(np.log10(Macc+Macc_u)-np.log10(Macc),4)
+    # elogMacc_d=round(np.log10(Macc)-np.log10(Macc-Macc_d),4)
+    # if np.isnan(elogMacc_d):elogMacc_d=elogMacc_u
+    # elif np.isnan(elogMacc_u):elogMacc_u=elogMacc_d
+    # logMacc=round(np.log10(Macc),4)
 
     return(logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r)
 
