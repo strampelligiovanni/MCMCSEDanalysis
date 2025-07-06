@@ -498,19 +498,11 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
         else: my_normal_colors=None
         if fit_spacc:
             try:
-                # if not np.isnan(MCMC.mu_Parallax):
-                    pos = np.array([np.array(
+                pos = np.array([np.array(
                         [np.random.uniform(logMass_min, logMass_max), np.random.uniform(MCMC.logAv_min, MCMC.logAv_max),
                          np.random.uniform(MCMC.logAge_min, MCMC.logAge_max),
                          np.random.uniform(MCMC.logSPacc_min, MCMC.logSPacc_max),
                          np.random.uniform(xParallax_min, xParallax_max)]) for i in range(MCMC.nwalkers)])
-                    pass
-                # else:
-                #     pos = np.array([np.array(
-                #         [np.random.uniform(logMass_min, logMass_max), np.random.uniform(MCMC.logAv_min, MCMC.logAv_max),
-                #          np.random.uniform(MCMC.logAge_min, MCMC.logAge_max),
-                #          np.random.uniform(MCMC.logSPacc_min, MCMC.logSPacc_max),
-                #          np.random.uniform(xParallax_min, xParallax_max)]) for i in range(MCMC.nwalkers)])
             except:
                 print('problems with ID: ', ID)
                 return (
@@ -518,16 +510,10 @@ def task(MCMC,ID,mag_list,emag_list,avg_df):
 
         else:
             try:
-            #     if not np.isnan(MCMC.mu_Parallax):
-                    pos = np.array([np.array(
+                pos = np.array([np.array(
                         [np.random.uniform(logMass_min, logMass_max), np.random.uniform(MCMC.logAv_min, MCMC.logAv_max),
                          np.random.uniform(MCMC.logAge_min, MCMC.logAge_max),
                          np.random.uniform(xParallax_min, xParallax_max)]) for i in range(MCMC.nwalkers)])
-                # else:
-                #     pos = np.array([np.array(
-                #         [np.random.uniform(logMass_min, logMass_max), np.random.uniform(MCMC.logAv_min, MCMC.logAv_max),
-                #          np.random.uniform(MCMC.logAge_min, MCMC.logAge_max),
-                #          np.random.uniform(xParallax_min, xParallax_max)]) for i in range(MCMC.nwalkers)])
             except:
                 print('problems with ID: ', ID)
                 return (
