@@ -312,6 +312,7 @@ if __name__ == '__main__':
     ################################################################################################################
 
     # Assembling Spectra dataframes for final plots
+    os.makedirs(path2data+'/analysis/fits', exist_ok=True)
     spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2accr_spect, path2models, path2models_w_acc)
     for ID in tqdm(ID_list):
         file = path2data+'/analysis/corners/cornerID%i.png' % int(ID)
