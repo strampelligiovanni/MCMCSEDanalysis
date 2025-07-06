@@ -121,26 +121,44 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
         if showID: figure.suptitle('Star ID %i'%ID)
         axes = np.array(figure.axes).reshape((ndim, ndim))
         for i in range(ndim):
-            if i == 0: 
-                val= logMass
-                eval_u= elogMass_u
-                eval_d= elogMass_d
-            elif i == 1: 
-                val= logAv
-                eval_u= elogAv_u
-                eval_d= elogAv_d
-            elif i == 2: 
-                val= logAge
-                eval_u= elogAge_u
-                eval_d= elogAge_d
-            elif i == 3: 
-                val= logSPacc
-                eval_u= elogSPacc_u
-                eval_d= elogSPacc_d
-            elif i == 4: 
-                val= Parallax
-                eval_u= eParallax_u
-                eval_d= eParallax_d
+            if spaccfit:
+                if i == 0:
+                    val= logMass
+                    eval_u= elogMass_u
+                    eval_d= elogMass_d
+                elif i == 1:
+                    val= logAv
+                    eval_u= elogAv_u
+                    eval_d= elogAv_d
+                elif i == 2:
+                    val= logAge
+                    eval_u= elogAge_u
+                    eval_d= elogAge_d
+                elif i == 3:
+                    val= logSPacc
+                    eval_u= elogSPacc_u
+                    eval_d= elogSPacc_d
+                elif i == 4:
+                    val= Parallax
+                    eval_u= eParallax_u
+                    eval_d= eParallax_d
+            else:
+                if i == 0:
+                    val = logMass
+                    eval_u = elogMass_u
+                    eval_d = elogMass_d
+                elif i == 1:
+                    val = logAv
+                    eval_u = elogAv_u
+                    eval_d = elogAv_d
+                elif i == 2:
+                    val = logAge
+                    eval_u = elogAge_u
+                    eval_d = elogAge_d
+                elif i == 3:
+                    val = Parallax
+                    eval_u = eParallax_u
+                    eval_d = eParallax_d
     
             txt = r"$\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}$"
             txt = txt.format(val, eval_d, eval_u, label_list[i])
