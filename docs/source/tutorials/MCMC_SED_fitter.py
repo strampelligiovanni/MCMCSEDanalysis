@@ -181,6 +181,7 @@ if __name__ == '__main__':
     args = parse()
     config = load(args.pipe_cfg)
     path2data = config['paths']['data']
+    path2out = config['paths']['out']
     path2priors = config['paths']['priors']
     path2accr_spect = config['paths']['accr_spect']
     path2models = config['paths']['models']
@@ -192,9 +193,9 @@ if __name__ == '__main__':
         ################################################################################################################
         # Making output dirs                                                                                            #
         ################################################################################################################
-        os.makedirs(path2data+'/analysis/samplers', exist_ok=True)
-        os.makedirs(path2data+'/analysis/corners', exist_ok=True)
-        os.makedirs(path2data+'/analysis/fits', exist_ok=True)
+        os.makedirs(path2out+'/samplers', exist_ok=True)
+        os.makedirs(path2out+'/corners', exist_ok=True)
+        os.makedirs(path2out+'/fits', exist_ok=True)
 
     ################################################################################################################
     # Importing Catalog                                                                                            #
@@ -279,7 +280,7 @@ if __name__ == '__main__':
               Age_KDE=Age_KDE0,
               mass_KDE=mass_KDE0,
               path2data=path2data,
-              savedir=path2data+'/analysis/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
+              savedir=path2out+'/samplers') # ----> This will setup the MCMC. There are many options hidden in there!
 
     run(mcmc, input_df, ID_list,forced=True) # ---> This will run the MCMC and save the sampler
 
@@ -293,7 +294,7 @@ if __name__ == '__main__':
     # Loading the posterior distributions saved in the sampler
     file_list=[]
     for ID in tqdm(ID_list):
-        file_list.append(path2data + f"/analysis/samplers/samplerID_{ID}")
+        file_list.append(path2out + f"/samplers/samplerID_{ID}")
 
     ################################################################################################################
     # I use these values to sample the sampler, plot corner plots and trace plots,                                 #
@@ -310,8 +311,8 @@ if __name__ == '__main__':
 
     # Sampling posteriors
     input_df = mcmc_utils.update_dataframe(input_df, file_list, interp_btsettl, kde_fit=True, ID_label=ID_label,
-                                           pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/analysis/samplers',
-                                           path2savedir=path2data+'/analysis/corners', parallel_runs=False, verbose=True,
+                                           pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2out+'/samplers',
+                                           path2savedir=path2out+'/corners', parallel_runs=False, verbose=True,
                                            label_list=label_list,spaccfit=config['MCMC']['spaccfit'])
 
     ################################################################################################################
@@ -319,10 +320,9 @@ if __name__ == '__main__':
     ################################################################################################################
 
     # Assembling Spectra dataframes for final plots
-    os.makedirs(path2data+'/analysis/fits', exist_ok=True)
     spAcc, spectrum_with_acc_df, spectrum_without_acc_df, vega_spectrum = assembling_spectra_dataframes(path2accr_spect, path2models, path2models_w_acc)
     for ID in tqdm(ID_list):
-        file = path2data+'/analysis/corners/cornerID%i.png' % int(ID)
+        file = path2out+'/corners/cornerID%i.png' % int(ID)
         img = mpimg.imread(file)
 
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
@@ -333,6 +333,6 @@ if __name__ == '__main__':
         ax[1].axis('off')
         fig.suptitle(int(ID))
         plt.tight_layout()
-        plt.savefig(path2data+'/analysis/fits/ID%i.png' % int(ID))
+        plt.savefig(path2out+'/fits/ID%i.png' % int(ID))
         plt.close()
 
