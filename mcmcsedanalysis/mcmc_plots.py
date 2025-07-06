@@ -37,7 +37,7 @@ from astropy.stats import sigma_clip
 #         plt.show()
 #     return(cluster,massfunc)
 
-def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None,None,None,None,None],bins=20,pranges=None,labelpad=10,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30):
+def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None,None,None,None,None],bins=20,pranges=None,labelpad=10,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30,spaccfit=True):
         path2file=path2loaddir+'/samplerID_%i'%ID
         filename=glob(path2file)[0]
         if verbose:print(filename)
@@ -54,7 +54,7 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
                 pranges.append((np.nanmin(flat_samples[:,i][np.isfinite(flat_samples[:,i])]),np.nanmax(flat_samples[:,i][np.isfinite(flat_samples[:,i])])))
         if verbose:print('tau:', mcmc_dict['tau'])
         
-        logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r= mcmc_utils.star_properties(flat_samples, ndim, interp, label_list=label_list, kde_fit=kde_fit, pmin=pmin, pmax=pmax)
+        logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r= mcmc_utils.star_properties(flat_samples, ndim, interp, label_list=label_list, kde_fit=kde_fit, pmin=pmin, pmax=pmax, spaccfit=spaccfit)
         if verbose:
             print('\nStar\'s principal parameters:')
 
