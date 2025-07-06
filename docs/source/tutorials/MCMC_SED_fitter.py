@@ -120,7 +120,7 @@ def interpolating_isochrones(path2iso, mag_label_list, redo=False, smooth=0.001,
 
 def assembling_dictionaries(filter_list,mag_label_list,sat_list, Rv):
     ## Extinction
-    Av_dict = mcmc_utils.get_Av_list(filter_list, verbose=False, Rv=Rv)
+    Av_dict = mcmc_utils.get_Av_list(filter_list, mag_label_list, verbose=False, Rv=Rv)
 
     ## Saturation
     sat_dict = dict(zip(mag_label_list, sat_list))
@@ -208,8 +208,8 @@ if __name__ == '__main__':
     sat_list = config['sat_list']
     Rv = config['Rv']
     ID_label = config['ID_label']
-    mag_label_list =  ['m_' + i.lower() for i in filter_list]
-    emag_label_list =  ['e_' +  i.lower() for i in filter_list]
+    mag_label_list =  config['mag_list']
+    emag_label_list =  config['emag_list']
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
     interp_btsettl = interpolating_isochrones(path2iso,mag_label_list)
@@ -245,7 +245,7 @@ if __name__ == '__main__':
               mag_label_list,
               sat_dict,
               Av_dict,
-              spaccfit=True,
+              spaccfit=config['MCMC']['spaccfit'],
               emag_label_list= emag_label_list,
               ID_label=ID_label,
               Teff_label=config['MCMC']['Teff_label'],
