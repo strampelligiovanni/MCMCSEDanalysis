@@ -150,7 +150,6 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
         
         plt.tight_layout(w_pad=0.,h_pad=0.)
 
-        os.makedirs(path2savedir, exist_ok=True)
         if isinstance(path2savedir, str): plt.savefig(path2savedir+'/cornerID%i.png'%ID, bbox_inches='tight')
         if return_fig: 
             plt.close()
