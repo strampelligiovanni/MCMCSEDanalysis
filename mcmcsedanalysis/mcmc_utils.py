@@ -100,7 +100,7 @@ def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_l
         else: color_good_list.append(True)
     return(np.array(color_list),np.array(ecolor_list),np.array(Av1_color_list),np.array(color_good_list))
 
-def get_Av_list(filter_label_list, date='2005-01-1',xlim=[3000, 15000], ylim=[1e-10, 1e-8], verbose=False, Av=1, Rv=3.1):
+def get_Av_list(filter_label_list, mag_label_list, date='2005-01-1',xlim=[3000, 15000], ylim=[1e-10, 1e-8], verbose=False, Av=1, Rv=3.1):
     obsdate = Time(date).mjd
     vegaspec = SourceSpectrum.from_vega()
     Dict = {}
@@ -136,37 +136,40 @@ def get_Av_list(filter_label_list, date='2005-01-1',xlim=[3000, 15000], ylim=[1e
         Av_calc = sp_stim - sp_stim_before
         print('Av = ', np.round(Av_calc, 4))
 
-    if any('johnson' in string for string in filter_label_list):
-        for filter in filter_label_list:
-            obs = Observation(vegaspec, SpectralElement.from_filter(filter))
-            obs_ext = Observation(vegaspec_ext, SpectralElement.from_filter(filter))
-            if verbose:
-                # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
-                print('AV=1 %s' % filter, np.round(
-                    obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec), 4))
-            Dict[filter] = np.round(
-                (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
-    else:
-        for filter in filter_label_list:
-            if filter in ['F130N', 'F139M']:
-                obs = Observation(vegaspec, stsyn.band('wfc3,ir,%s' % filter.lower()))
-                obs_ext = Observation(vegaspec_ext, stsyn.band('wfc3,ir,%s' % filter.lower()))
-            elif filter in ['F336W', 'F439W', 'F656N', 'F814W']:
-                obs = Observation(vegaspec, stsyn.band('acs,wfpc2,%s' % filter.lower()))
-                obs_ext = Observation(vegaspec_ext, stsyn.band('acs,wfpc2,%s' % filter.lower()))
-            elif filter in ['F110W', 'F160W']:
-                obs = Observation(vegaspec, stsyn.band('nicmos,3,%s' % filter.lower()))
-                obs_ext = Observation(vegaspec_ext, stsyn.band('nicmos,3,%s' % filter.lower()))
-            else:
-                obs = Observation(vegaspec, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}' % filter.lower()))
-                obs_ext = Observation(vegaspec_ext, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}' % filter.lower()))
+    # if any('johnson' in string for string in filter_label_list):
+    #     for filter in filter_label_list:
+    #         obs = Observation(vegaspec, SpectralElement.from_filter(filter))
+    #         obs_ext = Observation(vegaspec_ext, SpectralElement.from_filter(filter))
+    #         if verbose:
+    #             # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
+    #             print('AV=1 %s' % filter, np.round(
+    #                 obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec), 4))
+    #         Dict[filter] = np.round(
+    #             (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
+    # else:
+    elno = 0
+    for filter in filter_label_list:
+        mag = mag_label_list[elno]
+        if filter in ['F130N', 'F139M']:
+            obs = Observation(vegaspec, stsyn.band('wfc3,ir,%s' % filter.lower()))
+            obs_ext = Observation(vegaspec_ext, stsyn.band('wfc3,ir,%s' % filter.lower()))
+        elif filter in ['F336W', 'F439W', 'F656N', 'F814W']:
+            obs = Observation(vegaspec, stsyn.band('acs,wfpc2,%s' % filter.lower()))
+            obs_ext = Observation(vegaspec_ext, stsyn.band('acs,wfpc2,%s' % filter.lower()))
+        elif filter in ['F110W', 'F160W']:
+            obs = Observation(vegaspec, stsyn.band('nicmos,3,%s' % filter.lower()))
+            obs_ext = Observation(vegaspec_ext, stsyn.band('nicmos,3,%s' % filter.lower()))
+        else:
+            obs = Observation(vegaspec, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}' % filter.lower()))
+            obs_ext = Observation(vegaspec_ext, stsyn.band(f'acs,wfc1,%s,mjd#{obsdate}' % filter.lower()))
 
-            if verbose:
-                # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
-                print('AV=1 %s' % filter, np.round(
-                    obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec), 4))
-            Dict['m%s' % filter[1:4]] = np.round(
-                (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
+        if verbose:
+            # print('AV=0 %s'%filter,obs.effstim('vegamag',vegaspec=vegaspec))
+            print('AV=1 %s' % filter, np.round(
+                obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec), 4))
+        Dict['%s' % mag] = np.round(
+            (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
+        elno+=1
     return (Dict)
 
 def truth_list(mass,Av,age,mass_lim=[0.1,0.9],Av_lim=[0,10],age_lim=[0,100]):
