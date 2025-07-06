@@ -73,9 +73,10 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
                              10 ** (logAge + elogAge_u) - 10 ** logAge, 'A')
             print(txt)
 
-            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
-            txt = txt.format(logSPacc, elogSPacc_d, elogSPacc_u, r"logSPacc")
-            print(txt)
+            if spaccfit:
+                txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+                txt = txt.format(logSPacc, elogSPacc_d, elogSPacc_u, r"logSPacc")
+                print(txt)
 
             txt = r"\mathrm{{{3}}} = {0:.5f}_{{-{1:.5f}}}^{{{2:.5f}}}"
             txt = txt.format(Parallax, eParallax_d, eParallax_u, 'Parallax')
@@ -102,13 +103,15 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
             txt = txt.format(logL, elogL_d, elogL_u, 'logL')
             print(txt)
 
-            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
-            txt = txt.format(logLacc, elogLacc_d, elogLacc_u, r"logL_{acc}")
-            print(txt)
+            if spaccfit:
+                txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+                txt = txt.format(logLacc, elogLacc_d, elogLacc_u, r"logL_{acc}")
+                print(txt)
 
-            txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
-            txt = txt.format(logMacc, elogMacc_d, elogMacc_u, r"logM_{acc}")
-            print(txt)
+            if spaccfit:
+                txt = r"\\mathrm{{{3}}} = {0:.2f}_{{-{1:.2f}}}^{{{2:.2f}}}"
+                txt = txt.format(logMacc, elogMacc_d, elogMacc_u, r"logM_{acc}")
+                print(txt)
 
         fig=plt.figure(figsize=(13, 13))
         figure = corner.corner(np.asarray(flat_samples),truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=fig,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD')#,label_kwargs={'fontsize':20},title_kwargs={'fontsize':20})
