@@ -96,7 +96,7 @@ def assembling_spectra_dataframes(path2accr_spect,path2models,path2models_w_acc,
     # vega_spectrum.plot(left=2000, right=20000, flux_unit='flam', title=vega_spectrum.meta['expr'])
     return(spAcc,spectrum_with_acc_df,spectrum_without_acc_df,vega_spectrum)
 
-def interpolating_isochrones(path2iso, mag_label_list, redo=False, smooth=0.001, method='linear', showplot=False):
+def interpolating_isochrones(path2iso, mag_label_list, interpfile="interpolated_isochrones.pck", redo=False, smooth=0.001, method='linear', showplot=False):
     if redo:
         ## Isochrones ((skip if already saved))
         iso_df=pd.read_hdf(path2iso+"bt_settl_AGSS2009_isochrones_new_acc_final.h5",'df')
@@ -110,11 +110,11 @@ def interpolating_isochrones(path2iso, mag_label_list, redo=False, smooth=0.001,
 
         interp_btsettl= mcmc_utils.interpND([x, y, z, node_list], method=method, showplot=showplot, smooth=smooth, z_label=node_label_list, workers=5)
 
-        with open(path2iso+"interpolated_isochrones.pck", 'wb') as file_handle:
+        with open(path2iso+interpfile, 'wb') as file_handle:
             pickle.dump(interp_btsettl , file_handle)
     else:
         ## Load interpolated isochrones
-        with open(path2iso + "interpolated_isochrones.pck", 'rb') as file_handle:
+        with open(path2iso + interpfile, 'rb') as file_handle:
             interp_btsettl = pickle.load(file_handle)
     return (interp_btsettl)
 
@@ -210,9 +210,10 @@ if __name__ == '__main__':
     ID_label = config['ID_label']
     mag_label_list =  config['mag_list']
     emag_label_list =  config['emag_list']
+    interpfile = config['interpfile']
 
     #Interpolating Isochrones on the selected magnitudes (or load an existing interpolated isochrone)
-    interp_btsettl = interpolating_isochrones(path2iso,mag_label_list)
+    interp_btsettl = interpolating_isochrones(path2iso,mag_label_list,interpfile)
     # Creating a filter dependent dictionary for the extinction, saturation and bandpass
     Av_dict, sat_dict, bp_dict = assembling_dictionaries(filter_list,mag_label_list,sat_list,Rv)
 
