@@ -732,7 +732,10 @@ def log_prior(params):
         else:
             lp_SpAcc = 0
         if not np.isnan(mu_T):
-            lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
+            if fit_spacc:
+                lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x,logSPacc_x),a=0,loc=mu_T,scale=sig_T))
+            else:
+                lp_mass=np.log(skewnorm.pdf(interp['teff'](logMass_x,logAge_x),a=0,loc=mu_T,scale=sig_T))
         else:
             if mass_kde!=None:
                 lp_mass=np.log(mass_kde.pdf(logMass_x))
