@@ -5,7 +5,7 @@ Created on Wed Sep 22 15:36:26 2021
 
 @author: giovanni
 """
-import sys,os
+import sys,os,math
 from mcmcsedanalysis.kde import KDE
 import numpy as np
 
@@ -26,6 +26,9 @@ from astropy import units as u
 from synphot import ExtinctionModel1D,Observation,SourceSpectrum,SpectralElement
 from astropy.time import Time
 import stsynphot as stsyn
+from plotly.subplots import make_subplots
+from scipy.interpolate import LinearNDInterpolator,Rbf
+import plotly.graph_objects as go
 
 class HiddenPrints:
     def __enter__(self):
@@ -785,3 +788,21 @@ def interpND(*args, smooth=0, method='nearest', x_label='x', y_label='y', z_labe
     if showplot:
         fig.show()
     return (Dict)
+
+def round_up(n, decimals=0):
+    '''
+    round up to the close number
+
+    Parameters
+    ----------
+    n : float
+        input number.
+    decimals : int, optional
+        number of decimals. The default is 0.
+
+    Returns
+    -------
+    output rounded number
+    '''
+    multiplier = 10 ** decimals
+    return math.ceil(n * multiplier) / multiplier
