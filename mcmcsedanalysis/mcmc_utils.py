@@ -226,13 +226,13 @@ def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSP
         if not verbose:
             with HiddenPrints():
                 logMass, elogMass_u, elogMass_d, logAv, elogAv_u, elogAv_d, logAge, elogAge_u, elogAge_d, logSPacc, elogSPacc_u, elogSPacc_d, Parallax, eParallax_u, eParallax_d, T, eT_u, eT_d, logL, elogL_d, elogL_u, logLacc, elogLacc_d, elogLacc_u, logMacc, elogMacc_d, elogMacc_u, kde_list, area_r = sample_posteriors(
-                    interp, float(ID), ndim, verbose=verbose, showplots=showplots,
+                    interp, float(ID), ndim, verbose=verbose, showplots=showplots,label_list=label_listl,
                     bins=10, kde_fit=kde_fit, return_fig=False, return_variables=True, path2savedir=path2savedir,
                     path2loaddir=path2loaddir, pranges=None, pmin=pmin, pmax=pmax, sigma=sigma, spaccfit=spaccfit)
 
         else:
             logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r=sample_posteriors(
-                interp,float(ID),ndim,verbose=verbose,showplots=showplots,bins=10,kde_fit=kde_fit,
+                interp,float(ID),ndim,verbose=verbose,showplots=showplots,bins=10,kde_fit=kde_fit,label_list=label_list,
                 return_fig=False,return_variables=True,path2savedir=path2savedir,path2loaddir=path2loaddir,pranges=None,
                 pmin=pmin,pmax=pmax,sigma=sigma,spaccfit=spaccfit)
         Dist=(Parallax* u.mas).to(u.parsec, equivalencies=u.parallax()).value
@@ -271,8 +271,9 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
                     area_r=area2/area
                 except: 
                     area_r = 0
-                
-        else: val =mcmc[1]
+
+        else:
+            val =mcmc[1]
         q = np.diff([mcmc[0],val,mcmc[-1]])
         if label_list[i]=='Parallax':
             if (val-q[0]<0) or (mcmc[0]>val):q[0]=np.nan
@@ -288,17 +289,16 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
             q_u_list.append(q[1])
 
     if spaccfit:
-        logSPacc=val_list
-        elogSPacc_u=q_u_list
-        elogSPacc_d=q_d_list
+        logMass,logAv,logAge,logSPacc,Parallax=val_list
+        elogMass_d,elogAv_d,elogAge_d,elogSPacc_d,eParallax_d=q_d_list
+        elogMass_u,elogAv_u,elogAge_u,elogSPacc_u,eParallax_u=q_u_list
     else:
-        logSPacc=np.nan
-        elogSPacc_u=np.nan
-        elogSPacc_d=np.nan
-
-    logMass,logAv,logAge,logSPacc,Parallax=val_list
-    elogMass_d,elogAv_d,elogAge_d,elogSPacc_d,eParallax_d=q_d_list
-    elogMass_u,elogAv_u,elogAge_u,elogSPacc_u,eParallax_u=q_u_list
+        logSPacc = np.nan
+        elogSPacc_d = np.nan
+        elogSPacc_u = np.nan
+        logMass,logAv,logAge,Parallax=val_list
+        elogMass_d,elogAv_d,elogAge_d,eParallax_d=q_d_list
+        elogMass_u,elogAv_u,elogAge_u,eParallax_u=q_u_list
     
     mass_u=10**(logMass+elogMass_u)
     mass_d=10**(logMass-elogMass_d)
@@ -312,14 +312,23 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
     else:
         SPacc_u=np.nan
         SPacc_d=np.nan
-    
-    T=round(float(interp[T_label](logMass,logAge,logSPacc)),4)
-    eT_u=round(float(interp[T_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))-T,4)
-    eT_d=round(T-float(interp[T_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d))),4)
-    if np.isnan(eT_d):
-        eT_d=eT_u
-    elif np.isnan(eT_u):
-        eT_u=eT_d
+
+    if spaccfit:
+        T=round(float(interp[T_label](logMass,logAge,logSPacc)),4)
+        eT_u=round(float(interp[T_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))-T,4)
+        eT_d=round(T-float(interp[T_label](np.log10(mass_d),np.log10(Age_d),np.log10(SPacc_d))),4)
+        if np.isnan(eT_d):
+            eT_d=eT_u
+        elif np.isnan(eT_u):
+            eT_u=eT_d
+    else:
+        T=round(float(interp[T_label](logMass,logAge)),4)
+        eT_u=round(float(interp[T_label](np.log10(mass_u),np.log10(Age_u)))-T,4)
+        eT_d=round(T-float(interp[T_label](np.log10(mass_d),np.log10(Age_d))),4)
+        if np.isnan(eT_d):
+            eT_d=eT_u
+        elif np.isnan(eT_u):
+            eT_u=eT_d
 
     if spaccfit:
         L=10**float(interp[logL_label](logMass,logAge,logSPacc))
