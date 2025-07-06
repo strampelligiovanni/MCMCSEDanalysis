@@ -303,10 +303,16 @@ if __name__ == '__main__':
     pM = config['MCMC']['pM']
     pm = config['MCMC']['pm']
 
+    if config['MCMC']['spaccfit']:
+        label_list = ['logMass', 'logAv', 'logAge', 'logSPacc', 'Parallax']
+    else:
+        label_list = ['logMass', 'logAv', 'logAge', 'Parallax']
+
     # Sampling posteriors
     input_df = mcmc_utils.update_dataframe(input_df, file_list, interp_btsettl, kde_fit=True, ID_label=ID_label,
                                            pmin=pmean - pm * 3, pmax=pmean + pM * 3, path2loaddir=path2data+'/analysis/samplers',
-                                           path2savedir=path2data+'/analysis/corners', parallel_runs=False, verbose=True)
+                                           path2savedir=path2data+'/analysis/corners', parallel_runs=False, verbose=True,
+                                           label_list=label_list,spaccfit=config['MCMC']['spaccfit'])
 
     ################################################################################################################
     # Saving summary plot                                                                                          #
