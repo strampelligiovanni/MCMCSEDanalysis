@@ -178,8 +178,10 @@ class MCMC():
         self.Age_KDE=Age_KDE
         self.mass_KDE=mass_KDE
 
-        if savedir==None: self.path2savedir=self.path2data+'/Giovanni/MCMC_analysis/samplers'
-        else:self.path2savedir=savedir
+        if savedir==None:
+            raise ValueError('Please provide a valid path to save the samplers.')
+        else:
+            self.path2savedir=savedir
 
         self.parallax=parallax
         self.eparallax=eparallax
@@ -644,7 +646,7 @@ def sampler_convergence(MCMC,sampler,pos):
 
                     
 def save_target(MCMC,ID,forced=False):
-    if MCMC.parallelize_sampler: print('> tau: ',MCMC.tau)
+    print('> tau: ',MCMC.tau)
     if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced) and ((MCMC.sampler.iteration+1) >= MCMC.niters):
     # if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced):
         if MCMC.burnin==None:
@@ -668,7 +670,6 @@ def save_target(MCMC,ID,forced=False):
                          'variables':MCMC.variable_list.tolist()
                          }
 
-        os.makedirs(MCMC.path2savedir, exist_ok=True)
         with bz2.BZ2File(MCMC.path2savedir+'/samplerID_%s'%ID, 'w') as f:
             pickle.dump(dict_to_save, f)
     else:
