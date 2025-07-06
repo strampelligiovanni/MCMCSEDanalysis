@@ -852,7 +852,7 @@ def combine_star_model_and_accretion_task(file,accr_list,sp_acc,path2accr_spect,
 #             filename=prename+'_teff%i_logg%s_feh0.0_star_rebinned.dat'%(Teff,logg)
 #             ascii.write(data, path2models+'Rebinned/'+filename, overwrite=True)
 
-def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,interp_btsettl,row,mag_labels=[],fig=None,ax=None,Rv=3.1,ms=2,showplot=True,loc='lower right',plot_spSWO_ext=True, plot_spAcc_ext=True,sp_color='k',outlier_list=[],arrow_kwargs=dict(),dxy={}):
+def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,interp_btsettl,row,mag_labels=[],fig=None,ax=None,Rv=3.1,ms=2,showplot=True,loc='lower right',plot_spSWO_ext=True, plot_spAcc_ext=True,sp_color='k',outlier_list=[],arrow_kwargs=dict(),dxy={},spaccfit=True):
     # Star's parameters
     if len(mag_labels)==0:
         mag_labels=np.array(['m336','m439','m656','m814','m435','m555','m658','m775','m850','m110','m160','m130','m139'])
@@ -861,11 +861,19 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
     logLacc=row.MCMC_logLacc.values[0]
     logMacc=row.MCMC_logMacc.values[0]
     teff=row.MCMC_T.values[0]
-    logg=np.round(interp_btsettl['logg'](np.log10(row.MCMC_mass),np.log10(row.MCMC_A),row.MCMC_logSPacc)[0],2)
+    if spaccfit:
+        logg=np.round(interp_btsettl['logg'](np.log10(row.MCMC_mass),np.log10(row.MCMC_A),row.MCMC_logSPacc)[0],2)
+    else:
+        logg = np.round(interp_btsettl['logg'](np.log10(row.MCMC_mass), np.log10(row.MCMC_A))[0], 2)
+
     Av=row.MCMC_Av.values[0]
     Age=row.MCMC_A.values[0]
     Mass=row.MCMC_mass.values[0]
-    r=interp_btsettl['R'](np.log10(row.MCMC_mass.values[0]),np.log10(row.MCMC_A.values[0]),row.MCMC_logSPacc.values[0])*1e9
+    if spaccfit:
+        r=interp_btsettl['R'](np.log10(row.MCMC_mass.values[0]),np.log10(row.MCMC_A.values[0]),row.MCMC_logSPacc.values[0])*1e9
+    else:
+        r = interp_btsettl['R'](np.log10(row.MCMC_mass.values[0]), np.log10(row.MCMC_A.values[0])) * 1e9
+
     R=r*u.cm.to(u.pc)*u.pc
     d=row.MCMC_d.values[0]
     D=d*u.pc
