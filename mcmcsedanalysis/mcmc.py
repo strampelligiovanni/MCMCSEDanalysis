@@ -648,7 +648,6 @@ def sampler_convergence(MCMC,sampler,pos):
 def save_target(MCMC,ID,forced=False):
     print('> tau: ',MCMC.tau)
     if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced) and ((MCMC.sampler.iteration+1) >= MCMC.niters):
-    # if ((any(MCMC.mag_good_list) or any(MCMC.color_good_list))) and not (all(np.isnan(MCMC.tau))) and (MCMC.converged or forced):
         if MCMC.burnin==None:
             MCMC.burnin=np.int_(MCMC.sampler.iteration/2)
         if MCMC.thin==None:
