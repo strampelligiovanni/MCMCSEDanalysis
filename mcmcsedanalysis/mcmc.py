@@ -678,8 +678,6 @@ def save_target(MCMC,ID,forced=False):
             raise Warning(f'Tau as nans for ID {ID}')
         elif not (MCMC.converged):
             raise Warning(f'ID {ID} did NOT converged.')
-        # elif ((MCMC.sampler.iteration+1) < MCMC.niters):
-        #     raise Warning(f'ID {ID} exited before completing the required number of iterations.')
 
 ##################################
 # Probability functions          #
