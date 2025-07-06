@@ -3,7 +3,7 @@
 #build-backend = "setuptools.build_meta"
 
 [project]
-name = "MCMCanalysis"
+name = "MCMCSEDanalysis"
 description = 'An MCMC Bayesian SED fitting tool for HST datasets'
 readme = "README.rst"
 dynamic = ["version", "dependencies"] # version will come from setuptools.scm
