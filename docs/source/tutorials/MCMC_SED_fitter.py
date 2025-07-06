@@ -243,21 +243,20 @@ if __name__ == '__main__':
     #To add prior knowledge for the star's parameters we need to add the following entry to the catalog.
     # If any of these values are nans, or absent, then the pipeline will use the KDEs if provided.
     # If they are None, then no prior will be used for that parameter.
-    input_df.loc[input_df[ID_label].isin(ID_list), 'Parallax'] = 2.768875
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eParallax'] = 150
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Parallax'] = 1.514106
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eParallax'] = 0.13
     input_df.loc[input_df[ID_label].isin(ID_list), 'Teff'] = 3402
     input_df.loc[input_df[ID_label].isin(ID_list), 'eTeff'] = 150
-    input_df.loc[input_df[ID_label].isin(ID_list), 'Av'] = 3.17
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eAv'] = 1
-    input_df.loc[input_df[ID_label].isin(ID_list), 'Age'] = 4.56
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eAge'] = 1
-    input_df.loc[input_df[ID_label].isin(ID_list), 'SpAcc'] = 0.042
-    input_df.loc[input_df[ID_label].isin(ID_list), 'eSpAcc'] = 0.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Av'] = 3.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eAv'] = 0.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'Age'] = 1.2
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eAge'] = 0.5
+    input_df.loc[input_df[ID_label].isin(ID_list), 'SpAcc'] = 0.18
+    input_df.loc[input_df[ID_label].isin(ID_list), 'eSpAcc'] = 0.1
 
     ################################################################################################################
     # This is the start of the MCMC run                                                                            #
     ################################################################################################################
-
     print(input_df.loc[input_df[ID_label].isin(ID_list)].pprint_all())
 
     mcmc=MCMC(interp_btsettl,
