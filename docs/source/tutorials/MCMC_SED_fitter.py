@@ -125,26 +125,43 @@ def assembling_dictionaries(filter_list,mag_label_list,sat_list, Rv):
     ## Saturation
     sat_dict = dict(zip(mag_label_list, sat_list))
 
+    bp_list = []
     ## BP dictionary
-    obsdate = Time('2005-01-1').mjd
-    bp336 = stsyn.band('acs,wfpc2,f336w')
-    bp439 = stsyn.band('acs,wfpc2,f439w')
-    bp656 = stsyn.band('acs,wfpc2,f656n')
-    bp814 = stsyn.band('acs,wfpc2,f814w')
+    for filter in filter_list:
+        obsdate = Time('2005-01-1').mjd
+        if filter.lower() == 'f336w':
+            bp = stsyn.band('acs,wfpc2,f336w')
+        elif filter.lower() == 'f439w':
+            bp = stsyn.band('acs,wfpc2,f439w')
+        elif filter.lower() == 'f656n':
+            bp = stsyn.band('acs,wfpc2,f656n')
+        elif filter.lower() == 'f814w':
+            bp = stsyn.band('acs,wfpc2,f814w')
 
-    bp435 = stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
-    bp555 = stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
-    bp658 = stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
-    bp775 = stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
-    bp850 = stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
+        elif filter.lower() == 'f435w':
+            bp = stsyn.band(f'acs,wfc1,f435w,mjd#{obsdate}')
+        elif filter.lower() == 'f555w':
+            bp = stsyn.band(f'acs,wfc1,f555w,mjd#{obsdate}')
+        elif filter.lower() == 'f658n':
+            bp = stsyn.band(f'acs,wfc1,f658n,mjd#{obsdate}')
+        elif filter.lower() == 'f775w':
+            bp = stsyn.band(f'acs,wfc1,f775w,mjd#{obsdate}')
+        elif filter.lower() == 'f850lp':
+            bp = stsyn.band(f'acs,wfc1,f850lp,mjd#{obsdate}')
 
-    bp110 = stsyn.band('nicmos,3,f110w')
-    bp160 = stsyn.band('nicmos,3,f160w')
+        elif filter.lower() == 'f110w':
+            bp = stsyn.band('nicmos,3,f110w')
+        elif filter.lower() == 'f160w':
+            bp = stsyn.band('nicmos,3,f160w')
 
-    bp130 = stsyn.band('wfc3,ir,f130n')
-    bp139 = stsyn.band('wfc3,ir,f139m')
+        elif filter.lower() == 'f130n':
+            bp = stsyn.band('wfc3,ir,f130n')
+        elif filter.lower() == 'f139m':
+            bp = stsyn.band('wfc3,ir,f139m')
 
-    bp_list = [bp336, bp439, bp656, bp814, bp435, bp555, bp658, bp775, bp850, bp110, bp160, bp130, bp139]
+        bp_list.append(bp)
+
+    # bp_list = [bp336, bp439, bp656, bp814, bp435, bp555, bp658, bp775, bp850, bp110, bp160, bp130, bp139]
 
     bp_flattened_list = []
     for bp in bp_list:
@@ -328,11 +345,14 @@ if __name__ == '__main__':
         fig, ax = plt.subplots(1, 2, figsize=(20, 10))
         fig, ax[0], Ndict = plot_SEDfit(spAcc, spectrum_without_acc_df, vega_spectrum, bp_dict,
                                         sat_dict, interp_btsettl, input_df.loc[input_df[ID_label] == ID],
-                                        mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0])
+                                        mag_label_list, Rv=Rv, ms=2, showplot=False, fig=fig, ax=ax[0],
+                                        spaccfit = config['MCMC']['spaccfit'])
         ax[1].imshow(img)
         ax[1].axis('off')
         fig.suptitle(int(ID))
         plt.tight_layout()
         plt.savefig(path2out+'/fits/ID%i.png' % int(ID))
         plt.close()
+
+    pass
 
