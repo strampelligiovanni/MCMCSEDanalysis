@@ -3,7 +3,7 @@
 #build-backend = "setuptools.build_meta"
 
 [project]
-name = "MCMCanalysis"
+name = "MCMCSEDanalysis"
 description = 'An MCMC Bayesian SED fitting tool for HST datasets'
 readme = "README.rst"
 dynamic = ["version", "dependencies"] # version will come from setuptools.scm
@@ -16,11 +16,11 @@ requires = ["setuptools>=61", "setuptools_scm[toml]>=6.4", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "mcmcanalysis/_version.py"
+write_to = "mcmcsedanalysis/_version.py"
 local_scheme = "no-local-version"
 
 [tool.setuptools.packages.find]
-include = ["mcmcanalysis*"]
+include = ["mcmcsedanalysis*"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ['requirements.txt']}
