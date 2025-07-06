@@ -40,11 +40,14 @@ from astropy.stats import sigma_clip
 def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None,None,None,None,None],bins=20,pranges=None,labelpad=10,discard=None,thin=None,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],kde_fit=False,showID=False,path2savedir=None,showplots=True,return_fig=False,return_variables=False,sigma=3.5,pmin=1.66,pmax=3.30,spaccfit=True):
         path2file=path2loaddir+'/samplerID_%i'%ID
         filename=glob(path2file)[0]
-        if verbose:print(filename)
+        if verbose:
+            print(filename)
         mcmc_dict= mcmc_utils.read_samples(filename)
         samples=np.array(mcmc_dict['samples'])
-        if discard!=None: samples=samples[discard:, :, :]
-        if thin!=None: samples=samples[::thin, :, :]        
+        if discard!=None:
+            samples=samples[discard:, :, :]
+        if thin!=None:
+            samples=samples[::thin, :, :]
         flat_samples=samples.reshape(samples.shape[0]*samples.shape[1],samples.shape[2])
         filtered_flat_sample=sigma_clip(flat_samples, sigma=sigma, maxiters=5,axis=0)
         flat_samples=filtered_flat_sample.copy()
