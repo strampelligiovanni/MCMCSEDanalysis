@@ -166,6 +166,7 @@ class MCMC():
         '''
         self.interp=interp
         self.spaccfit=spaccfit
+        
         self.mag_label_list=np.array(mag_label_list)
         if emag_label_list is not None:
             self.emag_label_list=np.array(emag_label_list)
@@ -270,6 +271,7 @@ def run(MCMC,avg_df,ID_list, forced=False):
     Age_kde=MCMC.Age_KDE
     mass_kde=MCMC.mass_KDE
     fit_spacc=MCMC.spaccfit
+
     if MCMC.parallelize_runs: 
 
         ntarget=len(ID_list)
@@ -829,7 +831,6 @@ def model_mag(params):
         else:
             x=interp[label](logMass_x,logAge_x)+10**logAv_x*AV_dict[label]+DM_x
 
-        # x=interp[label](logMass_x,logAge_x,logSPacc_x)+10**logAv_x*AV_dict[label]+DM_x
         variables_list.append(x)
     return(np.array(variables_list))
 

@@ -981,7 +981,6 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
 
                 bb.set_boxstyle("rarrow", pad=0.6)
 
-
     ax.set_yscale('log')
     ax.legend(loc=loc,fontsize=15)
     ax.set_xlim(3e3,1.7e4)

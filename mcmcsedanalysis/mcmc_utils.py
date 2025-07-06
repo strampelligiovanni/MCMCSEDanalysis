@@ -65,8 +65,8 @@ def simulate_mag_star(ID,sat_list,variables_interp_in,mag_variable_in,Av1_list,I
         mag_list=np.array([mag_temp_list[i]+np.random.normal(0,scale=emag_list[i]) for i in range(len(mag_temp_list))])
     else:
         mag_temp_list=np.copy(mag_list)
-        if err!=None: emag_list=np.array([err]*len(mag_temp_list))
-        # else: emag_list+=0.02
+        if err!=None: 
+          emag_list=np.array([err]*len(mag_temp_list))
 
     emag_temp_list=np.copy(emag_list)
     mag_good_list=[True]*len(mag_variable_in)
@@ -78,11 +78,9 @@ def simulate_mag_star(ID,sat_list,variables_interp_in,mag_variable_in,Av1_list,I
             if (np.isnan(mag_list[elno]))|(np.isnan(emag_list[elno]))|(emag_list[elno] >=err_max)|(mag_list[elno]<=sat_list[elno]): 
                 mag_good_list[elno]=False
             
-    # mag_good_list=(emag_list<=err_max)&(mag_list>=sat_list)
     mag_good_list=np.array(mag_good_list)
     mag_list[~mag_good_list]=np.nan
     emag_list[~mag_good_list]=np.nan
-    # return(np.round(mag_list,4),np.round(emag_list,4),np.round(mag_temp_list,4),np.round(emag_temp_list,4),mag_good_list)
     return(mag_list,emag_list,mag_temp_list,emag_temp_list,mag_good_list)
 
 def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_list):
@@ -97,7 +95,6 @@ def simulate_color_star(mag_list,emag_list,Av1_list,mag_label_list,color_label_l
         k=np.where(mag2_label == mag_label_list)[0][0]
         color_list.append(mag_list[j]-mag_list[k])
         ecolor_list.append(np.sqrt(emag_list[j]**2+emag_list[k]**2))
-        # Av1_color_list.append(Av1_list[j]-Av1_list[k])
         Av1_color_list.append(Av1_list[mag1_label]-Av1_list[mag2_label])
         if np.isnan(color_list[-1]): color_good_list.append(False)
         else: color_good_list.append(True)
@@ -173,6 +170,7 @@ def get_Av_list(filter_label_list, mag_label_list, date='2005-01-1',xlim=[3000, 
         Dict['%s' % mag] = np.round(
             (obs_ext.effstim('vegamag', vegaspec=vegaspec) - obs.effstim('vegamag', vegaspec=vegaspec)).value, 4)
         elno+=1
+
     return (Dict)
 
 def truth_list(mass,Av,age,mass_lim=[0.1,0.9],Av_lim=[0,10],age_lim=[0,100]):
@@ -217,7 +215,6 @@ def update_dataframe(df,file_list,interp,workers=10,chunksize = 30,ID_label='avg
     return(df)
 
 def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSPacc','Parallax'],path2savedir=None,path2loaddir='./',pmin=1.66,pmax=3.30,verbose=False,showplots=False,sigma=3.5,spaccfit=True):
-
     ndim=len(label_list)
     ID=float(file.split('_')[-1])
     mcmc_dict=read_samples(file)  
@@ -226,7 +223,6 @@ def task(file,interp,kde_fit=False,label_list=['logMass','logAv','logAge','logSP
         truths = [None, None, None, None, None]
     else:
         truths = [None, None, None, None]
-
 
     if len(samples)>0:
         if not verbose:
@@ -277,7 +273,6 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
                     area_r=area2/area
                 except: 
                     area_r = 0
-
         else:
             val =mcmc[1]
         q = np.diff([mcmc[0],val,mcmc[-1]])
@@ -372,14 +367,6 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
         elogLacc_d=np.nan
         logLacc=np.nan
 
-    # elogLacc_u=round(np.log10(Lacc+Lacc_u)-np.log10(Lacc),4)
-    # elogLacc_d=round(np.log10(Lacc)-np.log10(Lacc-Lacc_d),4)
-    # if np.isnan(elogLacc_d):
-    #     elogLacc_d=elogLacc_u
-    # elif np.isnan(elogLacc_u):
-    #     elogLacc_u=elogLacc_d
-    # logLacc=round(np.log10(Lacc),4)
-
     if spaccfit:
         Macc=10**float(interp[logMacc_label](logMass,logAge,logSPacc))
         Macc_u=10**float(interp[logMacc_label](np.log10(mass_u),np.log10(Age_u),np.log10(SPacc_u)))
@@ -398,12 +385,6 @@ def star_properties(flat_samples,ndim,interp,pmin=1.66,pmax=3.30,mass_label='mas
         elogMacc_u=np.nan
         elogMacc_d=np.nan
         logMacc=np.nan
-
-    # elogMacc_u=round(np.log10(Macc+Macc_u)-np.log10(Macc),4)
-    # elogMacc_d=round(np.log10(Macc)-np.log10(Macc-Macc_d),4)
-    # if np.isnan(elogMacc_d):elogMacc_d=elogMacc_u
-    # elif np.isnan(elogMacc_u):elogMacc_u=elogMacc_d
-    # logMacc=round(np.log10(Macc),4)
 
     return(logMass,elogMass_u,elogMass_d,logAv,elogAv_u,elogAv_d,logAge,elogAge_u,elogAge_d,logSPacc,elogSPacc_u,elogSPacc_d,Parallax,eParallax_u,eParallax_d,T,eT_u,eT_d,logL,elogL_d,elogL_u,logLacc,elogLacc_d,elogLacc_u,logMacc,elogMacc_d,elogMacc_u,kde_list,area_r)
 
@@ -467,12 +448,9 @@ def lum_corr(MCMC_sim_df,ID,interp_mags,interp_cols,Av_list,DM,L,mag_label_list,
 
     dmag_corr_list=np.array(dmag_corr_list)
     emag_corr_list=np.array(emag_corr_list)
-    # dmag_mean=np.average(dmag_corr_list,weights=emag_corr_list)
     dmag_median=np.median(dmag_corr_list)
     df_f=-dmag_median/1.087 
     if verbose:
-        # print('Delta distance?!:')
-        # print(dmag_mean,10**(abs(dmag_mean)/5),10**(abs(dmag_corr_list)/5))
         print('Delta Mag/Flux:')
         print('dmag_median: %.3f, dflux: %.3f'%(dmag_median,df_f))
         print('Delta L:')
@@ -489,10 +467,7 @@ def accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,zpt658,photlam658,Msun,L
 
     L=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'L_corr'].values[0]*Lsun
     eL=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'eL_corr'].values[0]*Lsun
-
-    # A=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'A'].values[0]*u.Myr
-    # eA=MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'eA'].values[0]*u.Myr
-                    
+    
     R=np.sqrt(L/(4*np.pi*sigma*T**4))
     eR=np.sqrt(R**2*np.array([(eL/L).value**2+(eT/T).value**2]))[0]
 
@@ -603,8 +578,6 @@ def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,i
             m775_c=interp_mags[2](np.log10(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mass'].values[0]),np.log10(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'A'].values[0]))+DM
             m850_c=interp_mags[3](np.log10(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mass'].values[0]),np.log10(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'A'].values[0]))+DM
 
-            # dage=np.log10(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'A'].values[0]+MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'eA'].values[0])
-            # dmass=np.log10(MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'mass'].values[0]+MCMC_sim_df.loc[MCMC_sim_df.ID==ID,'emass'].values[0])
             e658_c=0#abs(m658_c-(interp_658_btsettl[0](dmass,dage)+DM))
 
             delta_list=np.array([m435-m435_c,m555-m555_c,m775-m775_c,m850-m850_c])
@@ -626,7 +599,6 @@ def star_accrention_properties(self,MCMC_sim_df,avg_df,interp_mags,interp_cols,i
                     plt.plot([m435_d,m555_d,m775_d,m850_d],'og',ms=4)
                     plt.show()
                 if not np.isnan([m658_c-m658_d]):
-                    # MCMC_sim_df=accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,label='')
                     MCMC_sim_df=accr_stats(MCMC_sim_df,ID,m658_c,m658_d,e658,e658_c,zpt658,photlam658,Msun,Lsun,eLsun,Rsun,d,ed,sigma,RW,s685=s685,EQ_th=EQ_th)
         else:
             MCMC_sim_df.loc[MCMC_sim_df.ID==ID,['N', 'mass', 'emass', 'emass_d', 'emass_u', 
@@ -682,7 +654,6 @@ def plot_ND(args, plotND=True, xerror=None, yerror=None, zerror=None, x_label='x
                       row=row, col=col)
         fig.update_layout(autosize=False, width=fx, height=fy, margin=dict(l=10, r=10, b=10, t=22, pad=4),
                           paper_bgcolor="LightSteelBlue")
-        # fig.update_scenes(xaxis=dict(title_text=x_label),yaxis=dict(title_text=y_label),row=row,col=col)
         fig.update_xaxes(title_text=x_label, row=row, col=col)
         fig.update_yaxes(title_text=y_label, row=row, col=col)
 

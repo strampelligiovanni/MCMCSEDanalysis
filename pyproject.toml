@@ -19,5 +19,8 @@ build-backend = "setuptools.build_meta"
 write_to = "mcmcanalysis/_version.py"
 local_scheme = "no-local-version"
 
+[tool.setuptools.packages.find]
+include = ["mcmcanalysis*"]
+
 [tool.setuptools.dynamic]
 dependencies = {file = ['requirements.txt']}
