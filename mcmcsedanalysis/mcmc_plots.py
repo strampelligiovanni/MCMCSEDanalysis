@@ -109,7 +109,7 @@ def sample_posteriors(interp,ID,ndim,verbose=True,path2loaddir='./',truths=[None
             print(txt)
 
         fig=plt.figure(figsize=(13, 13))
-        figure = corner.corner(flat_samples,truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=fig,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD')#,label_kwargs={'fontsize':20},title_kwargs={'fontsize':20})
+        figure = corner.corner(np.asarray(flat_samples),truths=truths,range=pranges,labels=label_list,plot_contours=True,fig=fig,bins=bins,hist_kwargs={'histtype':'stepfilled','color':'#6A5ACD','density':True,'alpha':0.35},contour_kwargs={'colors':'k','labelpad':labelpad},color='#6A5ACD')#,label_kwargs={'fontsize':20},title_kwargs={'fontsize':20})
         if showID: figure.suptitle('Star ID %i'%ID)
         axes = np.array(figure.axes).reshape((ndim, ndim))
         for i in range(ndim):
