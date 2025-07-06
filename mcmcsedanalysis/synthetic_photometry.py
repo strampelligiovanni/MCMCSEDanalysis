@@ -878,22 +878,27 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
     d=row.MCMC_d.values[0]
     D=d*u.pc
     DM=5*np.log10(d/10)
+    sp_acc=0
 
     # Star Spectrum /wo accr
     spSWO=interpolate_spectra2D(spectrum_without_acc_df,teff,logg)
     wavelengths=spSWO.waveset
+    if spaccfit:
+        #total flux of the accretium spectrum in PHOTLAM
+        norm_factor_sp_acc = sp_acc.integrate(wavelengths=wavelengths).value
+        #normalized accretium spectrum in PHOTLAM
+        sp_acc_rn = sp_acc/norm_factor_sp_acc
+        norm_factor_star = spSWO.integrate(wavelengths=wavelengths).value
+        #normalize accretium spectrum to total area of star spectrum
+        sp_acc=sp_acc_rn*norm_factor_star
+        sp_acc*=10**(logSPacc)
 
-    #total flux of the accretium spectrum in PHOTLAM
-    norm_factor_sp_acc = sp_acc.integrate(wavelengths=wavelengths).value
-    #normalized accretium spectrum in PHOTLAM
-    sp_acc_rn = sp_acc/norm_factor_sp_acc
-    norm_factor_star = spSWO.integrate(wavelengths=wavelengths).value
-    #normalize accretium spectrum to total area of star spectrum
-    sp_acc=sp_acc_rn*norm_factor_star
-    sp_acc*=10**(logSPacc)
+        # Star Spectrum /w accr
+        spSum=sp_acc+spSWO
+    else:
+        # Star Spectrum /wo accr
+        spSum=spSWO
 
-    # Star Spectrum /w accr
-    spSum=sp_acc+spSWO
     waveset=spSum.waveset[(spSum.waveset.value>=3e3)&(spSum.waveset.value<=1.7e4)]
 
     # Star's extinction
@@ -901,15 +906,19 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
     ex = ExtinctionCurve(ExtinctionModel1D,points=waveset, lookup_table=extinct.extinguish(waveset, Av=Av))
     # ex=1
 
-    if showplot:fig,ax=plt.subplots(1,1,figsize=(15,15))
-    spSWO_ext = spSWO*ex
-    if plot_spSWO_ext: ax.plot(waveset, units.convert_flux(waveset,spSWO_ext(waveset),flam)*(1/D)**2, c='r', ls= '-', label='Teff %i, logg %.2f'%(teff,logg),ms=ms)
-    # ax.plot(waveset, units.convert_flux(waveset,spSWO_ext(waveset),units.FLAM).value, c='r', ls= '-', label='Teff %i, logg %.2f'%(teff,logg),ms=ms)
+    if showplot:
+        fig,ax=plt.subplots(1,1,figsize=(15,15))
+    if spaccfit:
+        spSWO_ext = spSWO * ex
+        if plot_spSWO_ext:
+            ax.plot(waveset, units.convert_flux(waveset,spSWO_ext(waveset),flam)*(1/D)**2, c='r', ls= '-', label='Teff %i, logg %.2f'%(teff,logg),ms=ms)
+        # ax.plot(waveset, units.convert_flux(waveset,spSWO_ext(waveset),units.FLAM).value, c='r', ls= '-', label='Teff %i, logg %.2f'%(teff,logg),ms=ms)
 
-    # Acc spectrum
-    spAcc_ext = sp_acc*ex
-    if plot_spAcc_ext: ax.plot(waveset, units.convert_flux(waveset,spAcc_ext(waveset),flam)*(1/D)**2, c='b', ls= '-', label='logSPacc %.2f'%logSPacc,ms=ms)
-    # ax.plot(waveset, units.convert_flux(waveset,spAcc_ext(waveset),units.FLAM).value, c='b', ls= '-', label='logSPacc %.2f'%logSPacc,ms=ms)
+        # Acc spectrum
+        spAcc_ext = sp_acc*ex
+        if plot_spAcc_ext:
+            ax.plot(waveset, units.convert_flux(waveset,spAcc_ext(waveset),flam)*(1/D)**2, c='b', ls= '-', label='logSPacc %.2f'%logSPacc,ms=ms)
+        # ax.plot(waveset, units.convert_flux(waveset,spAcc_ext(waveset),units.FLAM).value, c='b', ls= '-', label='logSPacc %.2f'%logSPacc,ms=ms)
 
     # Star spectrum /w accr
     spSum_ext = spSum*ex
