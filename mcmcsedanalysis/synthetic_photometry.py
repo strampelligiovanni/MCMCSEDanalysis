@@ -852,7 +852,7 @@ def combine_star_model_and_accretion_task(file,accr_list,sp_acc,path2accr_spect,
 #             filename=prename+'_teff%i_logg%s_feh0.0_star_rebinned.dat'%(Teff,logg)
 #             ascii.write(data, path2models+'Rebinned/'+filename, overwrite=True)
 
-def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,interp_btsettl,row,mag_labels=[],fig=None,ax=None,Rv=3.1,ms=2,showplot=True,loc='lower right',plot_spSWO_ext=True, plot_spAcc_ext=True,sp_color='k',outlier_list=[],arrow_kwargs=dict(),dxy={},spaccfit=True):
+def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,interp_btsettl,row,mag_labels=[],fig=None,ax=None,Rv=3.1,ms=2,showplot=True,loc='lower right',plot_spSWO_ext=True, plot_spAcc_ext=True,sp_color='k',color='k',outlier_list=[],arrow_kwargs=dict(),dxy={},spaccfit=True):
     # Star's parameters
     if len(mag_labels)==0:
         mag_labels=np.array(['m336','m439','m656','m814','m435','m555','m658','m775','m850','m110','m160','m130','m139'])
@@ -904,7 +904,6 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
     # Star's extinction
     extinct = CCM89(Rv=Rv)
     ex = ExtinctionCurve(ExtinctionModel1D,points=waveset, lookup_table=extinct.extinguish(waveset, Av=Av))
-    # ex=1
 
     if showplot:
         fig,ax=plt.subplots(1,1,figsize=(15,15))
@@ -912,18 +911,18 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
         spSWO_ext = spSWO * ex
         if plot_spSWO_ext:
             ax.plot(waveset, units.convert_flux(waveset,spSWO_ext(waveset),flam)*(1/D)**2, c='r', ls= '-', label='Teff %i, logg %.2f'%(teff,logg),ms=ms)
-        # ax.plot(waveset, units.convert_flux(waveset,spSWO_ext(waveset),units.FLAM).value, c='r', ls= '-', label='Teff %i, logg %.2f'%(teff,logg),ms=ms)
 
         # Acc spectrum
         spAcc_ext = sp_acc*ex
         if plot_spAcc_ext:
             ax.plot(waveset, units.convert_flux(waveset,spAcc_ext(waveset),flam)*(1/D)**2, c='b', ls= '-', label='logSPacc %.2f'%logSPacc,ms=ms)
-        # ax.plot(waveset, units.convert_flux(waveset,spAcc_ext(waveset),units.FLAM).value, c='b', ls= '-', label='logSPacc %.2f'%logSPacc,ms=ms)
 
     # Star spectrum /w accr
     spSum_ext = spSum*ex
-    ax.plot(waveset, units.convert_flux(waveset,spSum_ext(waveset),flam)*(1/D)**2, c=sp_color,lw=3, ls= '-', label='Teff %i, logg %.2f, logMass %.2f, logAge %.2f, logAv %.2f\nlogSPacc %.2f, logLacc %.2f, logMacc %.2f'%(teff,logg,np.log10(Mass),np.log10(Age),np.log10(Av),logSPacc,logLacc,logMacc),ms=ms)
-    # ax.plot(waveset, units.convert_flux(waveset,spSum_ext(waveset),units.FLAM).value, c='k',lw=3, ls= '-', label='Teff %i, logg %.2f, logSPacc %.2f, Av %.2f'%(teff,logg,logSPacc,Av),ms=ms)
+    if spaccfit:
+        ax.plot(waveset, units.convert_flux(waveset,spSum_ext(waveset),flam)*(1/D)**2, c=sp_color,lw=3, ls= '-', label='Teff %i, logg %.2f, logMass %.2f, logAge %.2f, logAv %.2f\nlogSPacc %.2f, logLacc %.2f, logMacc %.2f'%(teff,logg,np.log10(Mass),np.log10(Age),np.log10(Av),logSPacc,logLacc,logMacc),ms=ms)
+    else:
+        ax.plot(waveset, units.convert_flux(waveset,spSum_ext(waveset),flam)*(1/D)**2, c=sp_color,lw=3, ls= '-', label='Teff %i, logg %.2f, logMass %.2f, logAge %.2f, logAv %.2f'%(teff,logg,np.log10(Mass),np.log10(Age),np.log10(Av)),ms=ms)
 
     ax.plot(0,0,'o',label='WFPC2',mfc='b',ms=20,mec='k',mew=2)
     ax.plot(0,0,'o',label='ACS',mfc='g',ms=20,mec='k',mew=2)
@@ -932,58 +931,47 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
     deltas_dict={}
     Ndict={}
     for key in list(bp_dict.keys()):
-        if key not in mag_labels: Ndict[filter]=False
-            # row['d%s'%key[1:]]=np.nan
+        if key not in mag_labels:
+            Ndict[filter]=False
         else:
-            if key in ['m336','m439','m656','m814']: color='b'
-            elif key in ['m435','m555','m658','m775','m850']: color='g'
-            elif key in ['m110','m160']: color='r'
-            elif key in ['m130','m190']: color='y'
-            mag=row[key].values[0]
-            emag=row['e%s'%key[1:]].values[0]
-            # row['d%s'%key[1:]]=np.nan
-            # ONC_df.loc[(ONC_df.avg_ids == ID), 'N%s' % key[1:]] = False
+            if key in list(bp_dict.keys()):
+                if key in ['m336','m439','m656','m814']: color='b'
+                elif key in ['m435','m555','m658','m775','m850']: color='g'
+                elif key in ['m110','m160']: color='r'
+                elif key in ['m130','m139']: color='y'
+                mag=row[key].values[0]
+                emag=row['e%s'%key[1:]].values[0]
 
-            if isinstance(sat_dict[key],str):
-                f_spx=row['f_%s'%key].values[0]
-                if f_spx!=3 and emag<=0.1:
-                    vobs=Observation(vega_spectrum, bp_dict[key],binset=bp_dict[key].waveset)
-                    wav=vobs.effective_wavelength(wavelengths=bp_dict[key].waveset)
-                    vega_flux=vobs.effstim(wavelengths=bp_dict[key].waveset,flux_unit='flam').value*flam
+                if isinstance(sat_dict[key],str):
+                    f_spx=row['f_%s'%key].values[0]
+                    if f_spx!=3 and emag<=0.1:
+                        vobs=Observation(vega_spectrum, bp_dict[key],binset=bp_dict[key].waveset)
+                        wav=vobs.effective_wavelength(wavelengths=bp_dict[key].waveset)
+                        vega_flux=vobs.effstim(wavelengths=bp_dict[key].waveset,flux_unit='flam').value*flam
 
-                    flux=10**(-mag/2.5)*vega_flux*(1/R)**2
-                    # flux=10**(-(mag-DM+Av*Av_dict[key])/2.5)*vega_flux*(D/R)**2
-                    ax.plot(wav,flux.value,'o',mfc=color,ms=20,mec='k',mew=2)
-                    # print(key,flux.value,(units.convert_flux(wav,spSum_ext(wav),units.FLAM).value*(1*u.pc/D)**2).value)
+                        flux=10**(-mag/2.5)*vega_flux*(1/R)**2
+                        ax.plot(wav,flux.value,'o',mfc=color,ms=20,mec='k',mew=2)
 
-                    # if truths: ax.plot(wav,units.convert_flux(wav,spSum_ext(wav),units.FLAM).value*(1*u.pc/D)**2 ,'xr',ms=20,mew=2)
-                    sp_flux=units.convert_flux(wav,spSum_ext(wav),units.FLAM)*(1/D)**2
-                    deltas_dict[key]=(abs(flux-sp_flux)/sp_flux).value
-                    # row['d%s'%key[1:]]=deltas_dict[key]
-                    # ONC_df.loc[(ONC_df.avg_ids == ID), 'N%s' % key[1:]]=True
-                    Ndict[key]=True
-                else:Ndict[key]=False
+                        sp_flux=units.convert_flux(wav,spSum_ext(wav),units.FLAM)*(1/D)**2
+                        deltas_dict[key]=(abs(flux-sp_flux)/sp_flux).value
+                        Ndict[key]=True
+                    else:Ndict[key]=False
 
-            else:
-                if mag>=sat_dict[key] and emag<=0.1:
-
-                    vobs=Observation(vega_spectrum, bp_dict[key],binset=bp_dict[key].waveset)
-                    wav=vobs.effective_wavelength(wavelengths=bp_dict[key].waveset)
-                    vega_flux=vobs.effstim(wavelengths=bp_dict[key].waveset,flux_unit='flam').value*flam
-
-                    flux=10**(-mag/2.5)*vega_flux*(1/R)**2
-                    # flux=10**(-(mag-DM+Av*Av_dict[key])/2.5)*vega_flux*(1/R)**2
-                    # print(key,flux.value,(units.convert_flux(wav,spSum_ext(wav),units.FLAM).value*(1*u.pc/D)**2).value)
-                    ax.plot(wav,flux,'o',mfc=color,ms=20,mec='k',mew=2)
-
-                    # if truths: ax.plot(wav,units.convert_flux(wav,spSum_ext(wav),units.FLAM).value*(1*u.pc/D)**2 ,'xr',ms=20,mew=2)
-                    sp_flux=units.convert_flux(wav,spSum_ext(wav),units.FLAM)*(1/D)**2
-                    deltas_dict[key]=(abs(flux-sp_flux)/sp_flux).value
-                    # row['d%s'%key[1:]]=deltas_dict[key]
-                    # ONC_df.loc[(ONC_df.avg_ids == ID), 'N%s' % key[1:]]=True
-                    Ndict[key] = True
                 else:
-                    Ndict[key]=False
+                    if mag>=sat_dict[key] and emag<=0.1:
+
+                        vobs=Observation(vega_spectrum, bp_dict[key],binset=bp_dict[key].waveset)
+                        wav=vobs.effective_wavelength(wavelengths=bp_dict[key].waveset)
+                        vega_flux=vobs.effstim(wavelengths=bp_dict[key].waveset,flux_unit='flam').value*flam
+
+                        flux=10**(-mag/2.5)*vega_flux*(1/R)**2
+                        ax.plot(wav,flux,'o',mfc=color,ms=20,mec='k',mew=2)
+
+                        sp_flux=units.convert_flux(wav,spSum_ext(wav),units.FLAM)*(1/D)**2
+                        deltas_dict[key]=(abs(flux-sp_flux)/sp_flux).value
+                        Ndict[key] = True
+                    else:
+                        Ndict[key]=False
 
             if key in outlier_list:
                 bbox_props = dict(boxstyle="rarrow", fc=(0.8, 0.9, 0.9), ec="b", lw=2)
@@ -993,18 +981,13 @@ def plot_SEDfit(sp_acc,spectrum_without_acc_df,vega_spectrum,bp_dict,sat_dict,in
 
                 bb.set_boxstyle("rarrow", pad=0.6)
 
-    # row['delta']=np.nanmean(row[['d336','d439','d656','d814','d435','d555','d658','d775','d850','d110','d160','d130','d139']],axis=1)
 
-    # ax.suptitle('%i'%ID,fontsize=30)
     ax.set_yscale('log')
     ax.legend(loc=loc,fontsize=15)
     ax.set_xlim(3e3,1.7e4)
-    # ax.set_ylim(np.nanmin([np.nanmin(units.convert_flux(waveset,spS_rn(waveset),units.FLAM).value*(1/D)**2).value,np.nanmin(units.convert_flux(waveset,spS_rn_ext(waveset),units.FLAM).value*(1/D)**2).value]),
-             # np.nanmax([np.nanmax(units.convert_flux(waveset,spS_rn(waveset),units.FLAM).value*(1/D)**2).value,np.nanmax(units.convert_flux(waveset,spS_rn_ext(waveset),units.FLAM).value*(1/D)**2).value]))
     ax.set_ylabel('FLAM [erg/cm2/s/A]')#,fontsize=20)
     ax.set_xlabel('Wavelenght [A]')#,fontsize=20)
     ax.grid()
-    # plt.savefig('C:\\Users\\stram\\Documents\\Documenti Personali\\Proposals\\Archive ONC Bayesian\\MCMC_spectrum_ID%i.pdf'%ID)
 
     if showplot:
         plt.show()
