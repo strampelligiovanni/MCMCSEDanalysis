@@ -29,7 +29,7 @@ class MCMC():
     #Main body #
     ############
     
-    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,spaccfit=False,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,eAv=1,eAge=1,eSpAcc=0.5,eTeff=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_label='Teff',eTeff_label='eTeff',parallax_label='parallax',eparallax_label='parallax_error',Av_label='Av',eAv_label='eAv',Age_label='A',eAge_label='eA',SpAcc_label='SpAcc',eSpAcc_label='eSpAcc',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
+    def __init__(self,interp,mag_label_list,sat_dict,AV_dict,spaccfit=False,emag_label_list=None ,savedir='samplers',parallax_KDE=None,Av_KDE=None,Age_KDE=None,mass_KDE=None,parallax=2.487562189054726,eparallax=0.030559732052269695,eAv=1,eAge=1,eSpAcc=0.5,eTeff=150,truths=[None,None,None,None,None],discard=None,thin=None,logMass_range=[-3,1],logAv_range=[2,1],logAge_range=[-2,2],logSPacc_range=[-6,10],Parallax_range=[0.01,6],nwalkers_ndim_niters=[50,3,10000],path2data='./',ID_label='avg_ids',Teff_prior='Teff',eTeff_prior='eTeff',parallax_prior='parallax',eparallax_prior='parallax_error',Av_prior='Av',eAv_prior='eAv',Age_prior='A',eAge_prior='eA',SpAcc_prior='SpAcc',eSpAcc_prior='eSpAcc',WCaII_label='WCaII',backend_sampler=False,sampler_dir_path='/Giovanni/MCMC_analysis/samplers/',workers=None,err=None,err_max=0.1,err_min=0.001,r2=4,gaussian_kde_bw_method=0.1,blobs=False,show_test=True,progress=True,parallelize_runs=False,parallelize_sampler=False,simulation=False,mags2fit=[],colors2fit=[],check_acor=100,Fconv=100,conv_thr=0.01,ndesired=2000):
         '''
         This is the initialization step of the MCMC class. The MCMC can be run to fit 3 varables at the time. The variables for the fit are:
         [logMass, logAv, Age]. 
@@ -206,16 +206,16 @@ class MCMC():
             else: workers=1    
         print('> Selected Workers:', workers)
         self.workers=workers
-        self.Teff_label=Teff_label
-        self.eTeff_label=eTeff_label
-        self.parallax_label=parallax_label
-        self.eparallax_label=eparallax_label
-        self.Av_label=Av_label
-        self.eAv_label=eAv_label
-        self.Age_label=Age_label
-        self.eAge_label=eAge_label
-        self.SpAcc_label=SpAcc_label
-        self.eSpAcc_label=eSpAcc_label
+        self.Teff_prior=Teff_prior
+        self.eTeff_prior=eTeff_prior
+        self.parallax_prior=parallax_prior
+        self.eparallax_prior=eparallax_prior
+        self.Av_prior=Av_prior
+        self.eAv_prior=eAv_prior
+        self.Age_prior=Age_prior
+        self.eAge_prior=eAge_prior
+        self.SpAcc_prior=SpAcc_prior
+        self.eSpAcc_prior=eSpAcc_prior
 
         self.WCaII_label=WCaII_label
         
@@ -339,51 +339,86 @@ def pre_task(MCMC,avg_df,ID):
         MCMC.mu_eSpAcc = np.nan
 
     else:
-        if MCMC.Teff_label in avg_df.columns:
-            MCMC.mu_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Teff_label].values[0]
+        if isinstance(MCMC.Teff_prior, str):
+            if MCMC.Teff_prior in avg_df.columns:
+                MCMC.mu_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Teff_prior].values[0]
+            else:
+                MCMC. mu_T=np.nan
+            if MCMC.eTeff_prior in avg_df.columns:
+                MCMC.sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_prior].values[0]
+            else:
+                MCMC.sig_T = MCMC.eTeff
+        elif isinstance(MCMC.Teff_prior, (int, float)):
+            MCMC.mu_T=MCMC.Teff_prior
+            MCMC.sig_T=MCMC.eTeff_prior
         else:
-            MCMC. mu_T=np.nan
-        if MCMC.eTeff_label in avg_df.columns:
-            MCMC.sig_T=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eTeff_label].values[0]
-        else:
-            MCMC.sig_T = MCMC.eTeff
+            MCMC.mu_T = np.nan
+            MCMC.sig_T = np.nan
 
-        if MCMC.parallax_label in avg_df.columns:
-            MCMC.mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_label].values[0]
+        if isinstance(MCMC.parallax_prior, str):
+            if MCMC.parallax_prior in avg_df.columns:
+                MCMC.mu_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.parallax_prior].values[0]
+            else:
+                MCMC.mu_Parallax=np.nan
+            if MCMC.eparallax_prior in avg_df.columns:
+                MCMC.sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_prior].values[0]
+            else:
+                MCMC.sig_Parallax = MCMC.eparallax
+        elif isinstance(MCMC.parallax_prior, (int, float)):
+            MCMC.mu_Parallax=MCMC.parallax_prior
+            MCMC.sig_Parallax=MCMC.eparallax_prior
         else:
-            MCMC.mu_Parallax=np.nan
-        if MCMC.eparallax_label in avg_df.columns:
-            MCMC.sig_Parallax=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eparallax_label].values[0]
-        else:
-            MCMC.sig_Parallax = MCMC.eparallax
+            MCMC.mu_Parallax = np.nan
+            MCMC.sig_Parallax = np.nan
 
-        if MCMC.Av_label in avg_df.columns:
-            MCMC.mu_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Av_label].values[0]
+        if isinstance(MCMC.Av_prior, str):
+            if MCMC.Av_prior in avg_df.columns:
+                MCMC.mu_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Av_prior].values[0]
+            else:
+                MCMC.mu_Av=np.nan
+            if MCMC.eAv_prior in avg_df.columns:
+                MCMC.sig_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAv_prior].values[0]
+            else:
+                MCMC.sig_Av = MCMC.eAv
+        elif isinstance(MCMC.Av_prior, (int, float)):
+            MCMC.mu_Av=MCMC.Av_prior
+            MCMC.sig_Av=MCMC.eAv_prior
         else:
             MCMC.mu_Av=np.nan
-        if MCMC.eAv_label in avg_df.columns:
-            MCMC.sig_Av=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAv_label].values[0]
-        else:
-            MCMC.sig_Av = MCMC.eAv
+            MCMC.sig_Av = np.nan
 
-        if MCMC.Age_label in avg_df.columns:
-            MCMC.mu_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Age_label].values[0]
+        if isinstance(MCMC.Av_prior, str):
+            if MCMC.Age_prior in avg_df.columns:
+                MCMC.mu_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.Age_prior].values[0]
+            else:
+                MCMC.mu_Age=np.nan
+            if MCMC.eAge_prior in avg_df.columns:
+                MCMC.sig_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAge_prior].values[0]
+            else:
+                MCMC.sig_Age = MCMC.eAge
+        elif isinstance(MCMC.Age_prior, (int, float)):
+            MCMC.mu_Age=MCMC.Age_prior
+            MCMC.sig_Age=MCMC.eAge_prior
         else:
-            MCMC.mu_Age=np.nan
-        if MCMC.eAge_label in avg_df.columns:
-            MCMC.sig_Age=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eAge_label].values[0]
-        else:
-            MCMC.sig_Age = MCMC.eAge
+            MCMC.mu_Age = np.nan
+            MCMC.sig_Age = np.nan
 
         if fit_spacc:
-            if MCMC.SpAcc_label in avg_df.columns:
-                MCMC.mu_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.SpAcc_label].values[0]
+            if isinstance(MCMC.SpAcc_prior, str):
+                if MCMC.SpAcc_prior in avg_df.columns:
+                    MCMC.mu_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.SpAcc_prior].values[0]
+                else:
+                    MCMC.mu_SpAcc=np.nan
+                if MCMC.eSpAcc_prior in avg_df.columns:
+                    MCMC.sig_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eSpAcc_prior].values[0]
+                else:
+                    MCMC.sig_SpAcc = MCMC.eSpAcc
+            elif isinstance(MCMC.SpAcc_prior, (int, float)):
+                MCMC.mu_SpAcc=MCMC.SpAcc_prior
+                MCMC.sig_SpAcc=MCMC.eSpAcc_prior
             else:
-                MCMC.mu_SpAcc=np.nan
-            if MCMC.eSpAcc_label in avg_df.columns:
-                MCMC.sig_SpAcc=avg_df.loc[avg_df[MCMC.ID_label]==ID,MCMC.eSpAcc_label].values[0]
-            else:
-                MCMC.sig_SpAcc = MCMC.eSpAcc
+                MCMC.mu_SpAcc = np.nan
+                MCMC.sig_SpAcc = np.nan
 
         else:
             MCMC.mu_SpAcc = np.nan
